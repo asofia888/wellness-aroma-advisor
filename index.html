@@ -21,10 +21,167 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body {
-        font-family: 'Noto Sans JP', sans-serif; /* Example font, ensure it's loaded or use system fonts */
+      /* Tailwind CSS base styles */
+      * {
+        box-sizing: border-box;
       }
-      /* Custom scrollbar for a softer look */
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Shippori Mincho', serif;
+        background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%);
+        min-height: 100vh;
+      }
+
+      /* Custom button styles */
+      .btn-primary {
+        background: linear-gradient(to right, #059669, #0d9488);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        font-weight: 500;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn-primary:hover {
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        transform: scale(1.05);
+      }
+
+      .btn-secondary {
+        background: white;
+        border: 2px solid #a7f3d0;
+        color: #047857;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        font-weight: 500;
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+
+      .btn-secondary:hover {
+        background: #ecfdf5;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Question option styles */
+      .question-option {
+        width: 100%;
+        padding: 1rem;
+        text-align: left;
+        border: 2px solid #e5e7eb;
+        border-radius: 0.5rem;
+        background: white;
+        transition: all 0.2s;
+        cursor: pointer;
+        margin-bottom: 0.5rem;
+      }
+
+      .question-option:hover {
+        border-color: #a7f3d0;
+        background: #ecfdf5;
+      }
+
+      .question-option.selected {
+        border-color: #10b981;
+        background: #d1fae5;
+        color: #065f46;
+      }
+
+      /* Card styles */
+      .card {
+        background: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #f3f4f6;
+        overflow: hidden;
+      }
+
+      .card-header {
+        background: linear-gradient(to right, #10b981, #0d9488);
+        color: white;
+        padding: 1.5rem;
+      }
+
+      .card-body {
+        padding: 1.5rem;
+      }
+
+      /* Diagnosis result styles */
+      .diagnosis-card {
+        background: linear-gradient(to bottom right, white, #ecfdf5);
+        border: 2px solid #a7f3d0;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      }
+
+      .oil-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        transition: box-shadow 0.2s;
+      }
+
+      .oil-card:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Text area styles */
+      textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        resize: none;
+        transition: border-color 0.2s;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+      }
+
+      /* Layout styles */
+      .container {
+        max-width: 48rem;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      .mb-4 {
+        margin-bottom: 1rem;
+      }
+
+      .mb-6 {
+        margin-bottom: 1.5rem;
+      }
+
+      .mb-8 {
+        margin-bottom: 2rem;
+      }
+
+      .mt-4 {
+        margin-top: 1rem;
+      }
+
+      .mt-6 {
+        margin-top: 1.5rem;
+      }
+
+      /* Custom scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
       }
@@ -37,6 +194,53 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #a1a1a1;
+      }
+
+      /* Loading animation */
+      .loading-dots::after {
+        content: '...';
+        animation: dots 1.5s steps(5, end) infinite;
+      }
+
+      @keyframes dots {
+        0%, 20% {
+          color: rgba(0,0,0,0);
+          text-shadow:
+            .25em 0 0 rgba(0,0,0,0),
+            .5em 0 0 rgba(0,0,0,0);
+        }
+        40% {
+          color: black;
+          text-shadow:
+            .25em 0 0 rgba(0,0,0,0),
+            .5em 0 0 rgba(0,0,0,0);
+        }
+        60% {
+          text-shadow:
+            .25em 0 0 black,
+            .5em 0 0 rgba(0,0,0,0);
+        }
+        80%, 100% {
+          text-shadow:
+            .25em 0 0 black,
+            .5em 0 0 black;
+        }
+      }
+
+      /* Responsive design */
+      @media (max-width: 768px) {
+        .card-body {
+          padding: 1rem;
+        }
+        
+        .btn-primary, .btn-secondary {
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+        }
+        
+        .container {
+          padding: 1rem 0.5rem;
+        }
       }
     </style>
      <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,7 +258,6 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 text-gray-800">
     <div id="root"></div>
