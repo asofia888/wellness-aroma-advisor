@@ -422,6 +422,14 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     for (const element of elementsToCapture) {
       if (element && element.offsetHeight > 0) {
         try {
+          // Add extra padding for text-heavy elements
+          const isTextHeavy = element.textContent && element.textContent.length > 200;
+          const extraPadding = isTextHeavy ? 40 : 20;
+          
+          // Ensure element is fully visible
+          element.style.overflow = 'visible';
+          element.style.height = 'auto';
+          
           const canvas = await html2canvas(element as HTMLElement, {
             scale: 1.5,
             useCORS: true,
@@ -429,7 +437,11 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
             logging: false,
             backgroundColor: '#ffffff',
             scrollX: 0,
-            scrollY: 0
+            scrollY: 0,
+            height: element.scrollHeight + extraPadding,
+            width: element.scrollWidth + extraPadding,
+            windowWidth: 1200,
+            windowHeight: element.scrollHeight + extraPadding
           });
           
           if (canvas.width > 0 && canvas.height > 0) {
