@@ -14,31 +14,36 @@ export const Header: React.FC<HeaderProps> = ({ language, setLanguage }) => {
   const inactiveButtonClass = "bg-transparent text-emerald-100 hover:bg-emerald-600";
 
   return (
-    <header className="w-full bg-emerald-700 text-white shadow-lg py-4">
-      <div className="container mx-auto px-4 flex flex-col sm:flex-row justify-between items-center">
-        <div className="text-center sm:text-left mb-3 sm:mb-0">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Shippori Mincho', serif" }}>
+    <header className="w-full bg-emerald-700 text-white shadow-lg py-6">
+      <div className="container mx-auto px-4">
+        {/* Language Selector - Top Right */}
+        <div className="flex justify-end mb-4">
+          <div className="flex space-x-2 border border-emerald-500 rounded-lg p-1">
+              <button 
+                  onClick={() => setLanguage('ja')}
+                  className={`${commonButtonClass} ${language === 'ja' ? activeButtonClass : inactiveButtonClass}`}
+                  aria-pressed={language === 'ja'}
+              >
+                  日本語
+              </button>
+              <button 
+                  onClick={() => setLanguage('en')}
+                  className={`${commonButtonClass} ${language === 'en' ? activeButtonClass : inactiveButtonClass}`}
+                  aria-pressed={language === 'en'}
+              >
+                  English
+              </button>
+          </div>
+        </div>
+        
+        {/* Centered Title */}
+        <div className="text-center">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2" style={{ fontFamily: "'Shippori Mincho', serif" }}>
             🌿 {strings.appName} 🌿
             </h1>
-            <p className="text-emerald-100 mt-1 text-xs md:text-sm" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
+            <p className="text-emerald-100 text-sm md:text-base max-w-2xl mx-auto leading-relaxed" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
             {strings.appSubtitle}
             </p>
-        </div>
-        <div className="flex space-x-2 border border-emerald-500 rounded-lg p-1">
-            <button 
-                onClick={() => setLanguage('ja')}
-                className={`${commonButtonClass} ${language === 'ja' ? activeButtonClass : inactiveButtonClass}`}
-                aria-pressed={language === 'ja'}
-            >
-                日本語
-            </button>
-            <button 
-                onClick={() => setLanguage('en')}
-                className={`${commonButtonClass} ${language === 'en' ? activeButtonClass : inactiveButtonClass}`}
-                aria-pressed={language === 'en'}
-            >
-                English
-            </button>
         </div>
       </div>
     </header>

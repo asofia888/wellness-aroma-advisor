@@ -1,6 +1,6 @@
-# 東洋医学統合アロマ診断システム
+# 東洋医学理論に基づく精油カウンセリング
 
-高度な東洋医学理論に基づく次世代精油カウンセリングシステム
+あなたの体質と心に寄り添う、伝統医学の知恵とアロマテラピー
 
 ## 🌟 特徴
 
@@ -72,4 +72,4 @@ npm run preview
 
 ## 📄 ライセンス
 
-All rights reserved - Traditional Medicine Integrated Aroma Diagnosis System
+All rights reserved - Essential Oil Counseling Based on Traditional Medicine Theory

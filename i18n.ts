@@ -9,10 +9,10 @@ import { DiagnosisKey } from './config';
 
 export const uiStrings = {
     ja: {
-        appName: '東洋医学統合アロマ診断システム',
-        appSubtitle: '高度な東洋医学理論に基づく次世代精油カウンセリング',
+        appName: '東洋医学理論に基づく精油カウンセリング',
+        appSubtitle: 'あなたの体質と心に寄り添う、伝統医学の知恵とアロマテラピー',
         footer: {
-            copyright: '漢方アロマカウンセリング. All rights reserved.',
+            copyright: '東洋医学理論に基づく精油カウンセリング. All rights reserved.',
             disclaimer: 'このアプリは古典東洋医学の考え方に基づくものであり、医学的診断や治療を代替するものではありません。',
             privacyPolicy: 'プライバシーポリシー',
             termsOfService: '利用規約',
@@ -58,7 +58,7 @@ export const uiStrings = {
             saveAsPdfButton: 'PDFとして保存',
             aiAnalyzingButton: 'AI分析中...',
             pdfGenerating: 'PDF生成中...',
-            pdfFileName: '東洋医学統合アロマ診断結果-{primary_name}{others}.pdf',
+            pdfFileName: '東洋医学精油カウンセリング結果-{primary_name}{others}.pdf',
             pdfError: '申し訳ありません、PDFの生成中にエラーが発生しました。',
         },
         privacyPolicy: {
@@ -66,10 +66,10 @@ export const uiStrings = {
         }
     },
     en: {
-        appName: 'Traditional Medicine Integrated Aroma Diagnosis',
-        appSubtitle: 'Advanced Traditional Medicine meets Modern Aromatherapy',
+        appName: 'Essential Oil Counseling Based on Traditional Medicine Theory',
+        appSubtitle: 'Ancient Wisdom Meets Modern Aromatherapy for Your Well-being',
         footer: {
-            copyright: 'Traditional Medicine Integrated Aroma Diagnosis. All rights reserved.',
+            copyright: 'Essential Oil Counseling Based on Traditional Medicine Theory. All rights reserved.',
             disclaimer: 'This application is based on advanced Traditional Medicine principles and is not a substitute for medical diagnosis or treatment.',
             privacyPolicy: 'Privacy Policy',
             termsOfService: 'Terms of Service',
