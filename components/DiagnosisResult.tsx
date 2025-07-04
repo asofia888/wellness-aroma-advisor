@@ -137,21 +137,33 @@ const AcupointCard: React.FC<{ acupoint: AcupointApplication, language: 'ja' | '
 
 
 const applyPdfStylesToClonedElement = (clonedElement: HTMLElement) => {
+    // Set root properties for better PDF rendering
     clonedElement.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-
+    clonedElement.style.setProperty('background-color', '#ffffff', 'important');
+    clonedElement.style.setProperty('overflow', 'visible', 'important');
+    clonedElement.style.setProperty('height', 'auto', 'important');
+    
+    // Remove all transitions and animations
     const allElements = clonedElement.querySelectorAll<HTMLElement>('*');
     allElements.forEach(el => {
         el.style.setProperty('transition', 'none', 'important');
+        el.style.setProperty('animation', 'none', 'important');
+        el.style.setProperty('transform', 'none', 'important');
+        el.style.setProperty('page-break-inside', 'avoid', 'important');
     });
 
+    // Improve text rendering for PDF
     const textBlocks = clonedElement.querySelectorAll<HTMLElement>('p, li, div[class*="text-"], span[class*="text-"], summary, h5, h3, h2, h1');
     textBlocks.forEach(el => {
         if (!el.style.fontFamily || !el.style.fontFamily.includes('Shippori Mincho')) {
             el.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
         }
-        el.style.setProperty('line-height', '1.7', 'important');
-        el.style.setProperty('letter-spacing', '0.015em', 'important');
-        el.style.setProperty('margin-bottom', '3px', 'important');
+        el.style.setProperty('line-height', '1.6', 'important');
+        el.style.setProperty('letter-spacing', '0.01em', 'important');
+        el.style.setProperty('margin-bottom', '8px', 'important');
+        el.style.setProperty('word-wrap', 'break-word', 'important');
+        el.style.setProperty('orphans', '2', 'important');
+        el.style.setProperty('widows', '2', 'important');
     });
     
     const shipporiHeadings = clonedElement.querySelectorAll<HTMLElement>(
@@ -173,7 +185,9 @@ const applyPdfStylesToClonedElement = (clonedElement: HTMLElement) => {
         } else {
              oilCardEl.style.setProperty('border', '1px solid #a7f3d0', 'important');
         }
-        oilCardEl.style.setProperty('margin-bottom', '12px', 'important');
+        oilCardEl.style.setProperty('margin-bottom', '16px', 'important');
+        oilCardEl.style.setProperty('page-break-inside', 'avoid', 'important');
+        oilCardEl.style.setProperty('break-inside', 'avoid', 'important');
 
         const oilTitle = oilCardEl.querySelector<HTMLElement>('h4');
         if (oilTitle) {
@@ -280,29 +294,36 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     
     const originalElement = pdfContentRef.current;
     
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
       const canvas = await html2canvas(originalElement, {
-        scale: 1.5, 
+        scale: 2, // Higher quality
         useCORS: true,
         allowTaint: true,
         logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
         onclone: (document) => {
             const clonedRoot = document.getElementById("pdf-content-area");
             if(clonedRoot) {
                 applyPdfStylesToClonedElement(clonedRoot);
-            } else {
-                console.warn("PDF generation: Cloned root element for styling not found.");
+                // Add PDF-specific styling
+                clonedRoot.style.pageBreakInside = 'avoid';
+                clonedRoot.style.overflow = 'visible';
+                clonedRoot.style.height = 'auto';
             }
         }
       });
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'pt',
         format: 'a4',
+        putOnlyUsedFonts: true,
+        floatPrecision: 16
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -312,39 +333,60 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       const canvasWidth = imgProps.width;
       const canvasHeight = imgProps.height;
 
-      const margin = 35; 
+      const margin = 40; // Increased margin
       const contentWidth = pdfWidth - (margin * 2);
       const contentHeight = pdfPageHeight - (margin * 2);
       
-      const imgRenderHeight = (canvasHeight * contentWidth) / canvasWidth;
-      const imgRenderWidth = contentWidth;
-
-      let currentPositionOnCanvas = 0; 
-
-      while (currentPositionOnCanvas < canvasHeight) {
-        if (currentPositionOnCanvas > 0) { 
-          pdf.addPage(); 
+      const scaleFactor = contentWidth / canvasWidth;
+      const scaledHeight = canvasHeight * scaleFactor;
+      
+      // Calculate optimal page breaks
+      const pageBreakBuffer = 50; // Buffer to avoid cutting content
+      const effectivePageHeight = contentHeight - pageBreakBuffer;
+      
+      let yPosition = 0;
+      let pageIndex = 0;
+      
+      while (yPosition < scaledHeight) {
+        if (pageIndex > 0) {
+          pdf.addPage();
         }
         
-        const sourceSliceHeightOnCanvas = (contentHeight / imgRenderHeight) * canvasHeight;
-        const actualSourceSliceHeight = Math.min(sourceSliceHeightOnCanvas, canvasHeight - currentPositionOnCanvas);
-
+        // Calculate slice dimensions
+        const remainingHeight = scaledHeight - yPosition;
+        const sliceHeight = Math.min(effectivePageHeight, remainingHeight);
+        
+        // Convert back to canvas coordinates
+        const canvasSliceHeight = sliceHeight / scaleFactor;
+        const canvasYStart = yPosition / scaleFactor;
+        
+        // Create temporary canvas for this slice
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvasWidth; 
-        tempCanvas.height = actualSourceSliceHeight; 
+        tempCanvas.width = canvasWidth;
+        tempCanvas.height = canvasSliceHeight;
         const tempCtx = tempCanvas.getContext('2d');
         
         if (tempCtx) {
-            tempCtx.drawImage(canvas, 0, currentPositionOnCanvas, canvasWidth, actualSourceSliceHeight, 0, 0, canvasWidth, actualSourceSliceHeight);
-            const pageImgData = tempCanvas.toDataURL('image/png');
-            const renderedSliceHeightOnPdf = (actualSourceSliceHeight * imgRenderWidth) / canvasWidth;
-            pdf.addImage(pageImgData, 'PNG', margin, margin, imgRenderWidth, renderedSliceHeightOnPdf);
+          // Fill with white background
+          tempCtx.fillStyle = '#ffffff';
+          tempCtx.fillRect(0, 0, canvasWidth, canvasSliceHeight);
+          
+          // Draw the slice
+          tempCtx.drawImage(
+            canvas, 
+            0, canvasYStart, canvasWidth, canvasSliceHeight,
+            0, 0, canvasWidth, canvasSliceHeight
+          );
+          
+          const sliceImgData = tempCanvas.toDataURL('image/png', 1.0);
+          pdf.addImage(sliceImgData, 'PNG', margin, margin, contentWidth, sliceHeight);
         }
         
-        currentPositionOnCanvas += actualSourceSliceHeight;
-        if (currentPositionOnCanvas >= canvasHeight - 1) { 
-            break;
-        }
+        yPosition += sliceHeight;
+        pageIndex++;
+        
+        // Safety break to avoid infinite loops
+        if (pageIndex > 50) break;
       }
       
       let pdfFileName = strings.pdfFileName
