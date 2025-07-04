@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -137,33 +136,21 @@ const AcupointCard: React.FC<{ acupoint: AcupointApplication, language: 'ja' | '
 
 
 const applyPdfStylesToClonedElement = (clonedElement: HTMLElement) => {
-    // Set root properties for better PDF rendering
     clonedElement.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-    clonedElement.style.setProperty('background-color', '#ffffff', 'important');
-    clonedElement.style.setProperty('overflow', 'visible', 'important');
-    clonedElement.style.setProperty('height', 'auto', 'important');
-    
-    // Remove all transitions and animations
+
     const allElements = clonedElement.querySelectorAll<HTMLElement>('*');
     allElements.forEach(el => {
         el.style.setProperty('transition', 'none', 'important');
-        el.style.setProperty('animation', 'none', 'important');
-        el.style.setProperty('transform', 'none', 'important');
-        el.style.setProperty('page-break-inside', 'avoid', 'important');
     });
 
-    // Improve text rendering for PDF
     const textBlocks = clonedElement.querySelectorAll<HTMLElement>('p, li, div[class*="text-"], span[class*="text-"], summary, h5, h3, h2, h1');
     textBlocks.forEach(el => {
         if (!el.style.fontFamily || !el.style.fontFamily.includes('Shippori Mincho')) {
             el.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
         }
-        el.style.setProperty('line-height', '1.6', 'important');
-        el.style.setProperty('letter-spacing', '0.01em', 'important');
-        el.style.setProperty('margin-bottom', '8px', 'important');
-        el.style.setProperty('word-wrap', 'break-word', 'important');
-        el.style.setProperty('orphans', '2', 'important');
-        el.style.setProperty('widows', '2', 'important');
+        el.style.setProperty('line-height', '1.7', 'important');
+        el.style.setProperty('letter-spacing', '0.015em', 'important');
+        el.style.setProperty('margin-bottom', '3px', 'important');
     });
     
     const shipporiHeadings = clonedElement.querySelectorAll<HTMLElement>(
@@ -185,9 +172,7 @@ const applyPdfStylesToClonedElement = (clonedElement: HTMLElement) => {
         } else {
              oilCardEl.style.setProperty('border', '1px solid #a7f3d0', 'important');
         }
-        oilCardEl.style.setProperty('margin-bottom', '16px', 'important');
-        oilCardEl.style.setProperty('page-break-inside', 'avoid', 'important');
-        oilCardEl.style.setProperty('break-inside', 'avoid', 'important');
+        oilCardEl.style.setProperty('margin-bottom', '12px', 'important');
 
         const oilTitle = oilCardEl.querySelector<HTMLElement>('h4');
         if (oilTitle) {
@@ -293,58 +278,82 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     setIsGeneratingPdf(true);
     
     const originalElement = pdfContentRef.current;
+
+    // フォントの読み込みを保証
+    if (document.fonts && document.fonts.ready) {
+      try {
+        await document.fonts.ready;
+      } catch (e) {
+        // フォント読み込み失敗時も続行
+      }
+    }
     
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); // 500msに延長
 
     try {
-      // Smart section-based PDF generation
-      const sections = await createPdfSections(originalElement);
+      const canvas = await html2canvas(originalElement, {
+        scale: 1.5, 
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#fff', // 白背景を明示
+        onclone: (document) => {
+            const clonedRoot = document.getElementById("pdf-content-area");
+            if(clonedRoot) {
+                applyPdfStylesToClonedElement(clonedRoot);
+            } else {
+                console.warn("PDF generation: Cloned root element for styling not found.");
+            }
+        }
+      });
+      const imgData = canvas.toDataURL('image/png');
       
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'pt',
         format: 'a4',
-        putOnlyUsedFonts: true,
-        floatPrecision: 16
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfPageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 30;
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const canvasWidth = imgProps.width;
+      const canvasHeight = imgProps.height;
+
+      const margin = 35; 
       const contentWidth = pdfWidth - (margin * 2);
-      const maxContentHeight = pdfPageHeight - (margin * 2);
+      const contentHeight = pdfPageHeight - (margin * 2);
       
-      let currentPage = 0;
-      let currentYPosition = margin;
-      
-      for (let i = 0; i < sections.length; i++) {
-        const section = sections[i];
-        
-        if (currentPage > 0 && (currentYPosition + section.height) > (pdfPageHeight - margin)) {
-          pdf.addPage();
-          currentPage++;
-          currentYPosition = margin;
+      const imgRenderHeight = (canvasHeight * contentWidth) / canvasWidth;
+      const imgRenderWidth = contentWidth;
+
+      let currentPositionOnCanvas = 0; 
+
+      while (currentPositionOnCanvas < canvasHeight) {
+        if (currentPositionOnCanvas > 0) { 
+          pdf.addPage(); 
         }
         
-        if (currentPage > 0 && currentYPosition === margin) {
-          // Starting a new page
-        } else if (currentPage === 0 && i === 0) {
-          // First section on first page
+        const sourceSliceHeightOnCanvas = (contentHeight / imgRenderHeight) * canvasHeight;
+        const actualSourceSliceHeight = Math.min(sourceSliceHeightOnCanvas, canvasHeight - currentPositionOnCanvas);
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvasWidth; 
+        tempCanvas.height = actualSourceSliceHeight; 
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (tempCtx) {
+            tempCtx.drawImage(canvas, 0, currentPositionOnCanvas, canvasWidth, actualSourceSliceHeight, 0, 0, canvasWidth, actualSourceSliceHeight);
+            const pageImgData = tempCanvas.toDataURL('image/png');
+            const renderedSliceHeightOnPdf = (actualSourceSliceHeight * imgRenderWidth) / canvasWidth;
+            pdf.addImage(pageImgData, 'PNG', margin, margin, imgRenderWidth, renderedSliceHeightOnPdf);
         }
         
-        const scaleFactor = Math.min(contentWidth / section.width, maxContentHeight / section.height);
-        const renderWidth = section.width * scaleFactor;
-        const renderHeight = section.height * scaleFactor;
-        
-        // Check if section fits on current page
-        if (currentYPosition + renderHeight > (pdfPageHeight - margin)) {
-          pdf.addPage();
-          currentPage++;
-          currentYPosition = margin;
+        currentPositionOnCanvas += actualSourceSliceHeight;
+        if (currentPositionOnCanvas >= canvasHeight - 1) { 
+            break;
         }
-        
-        pdf.addImage(section.imageData, 'PNG', margin, currentYPosition, renderWidth, renderHeight);
-        currentYPosition += renderHeight + 20; // Add spacing between sections
       }
       
       let pdfFileName = strings.pdfFileName
@@ -358,124 +367,6 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     } finally {
       setIsGeneratingPdf(false);
     }
-  };
-
-  const createPdfSections = async (element: HTMLElement) => {
-    const sections: Array<{imageData: string, width: number, height: number}> = [];
-    
-    // Clone the element for processing
-    const clonedElement = element.cloneNode(true) as HTMLElement;
-    document.body.appendChild(clonedElement);
-    clonedElement.style.position = 'absolute';
-    clonedElement.style.top = '-9999px';
-    clonedElement.style.left = '-9999px';
-    clonedElement.style.width = '800px'; // Fixed width for consistency
-    clonedElement.style.background = '#ffffff';
-    
-    applyPdfStylesToClonedElement(clonedElement);
-    
-    // Define section selectors in order - break content into logical sections
-    const sectionSelectors = [
-      'h2', // Title section
-      '.space-y-6.text-gray-700', // Primary diagnosis content
-      'section.mt-8.pt-6', // Primary oils section
-      '#secondary-diagnoses-section', // Secondary diagnoses
-      '#ai-analysis-section-pdf' // AI analysis
-    ];
-    
-    // Process each section individually with smart grouping
-    const elementsToCapture = [];
-    
-    // Group header elements together
-    const headerElement = clonedElement.querySelector('.text-center.mb-8');
-    if (headerElement) {
-      elementsToCapture.push(headerElement);
-    }
-    
-    // Primary diagnosis content
-    const primaryContent = clonedElement.querySelector('.space-y-6.text-gray-700');
-    if (primaryContent) {
-      elementsToCapture.push(primaryContent);
-    }
-    
-    // Oil sections - capture each oil card separately
-    const oilSections = clonedElement.querySelectorAll('section.mt-8, .pdf-capture-oil-card');
-    oilSections.forEach(section => {
-      if (section && section.offsetHeight > 0) {
-        elementsToCapture.push(section);
-      }
-    });
-    
-    // Secondary diagnoses
-    const secondarySection = clonedElement.querySelector('#secondary-diagnoses-section');
-    if (secondarySection) {
-      elementsToCapture.push(secondarySection);
-    }
-    
-    // AI analysis
-    const aiSection = clonedElement.querySelector('#ai-analysis-section-pdf');
-    if (aiSection) {
-      elementsToCapture.push(aiSection);
-    }
-    
-    // Create canvas for each element
-    for (const element of elementsToCapture) {
-      if (element && element.offsetHeight > 0) {
-        try {
-          // Add extra padding for text-heavy elements
-          const isTextHeavy = element.textContent && element.textContent.length > 200;
-          const extraPadding = isTextHeavy ? 40 : 20;
-          
-          // Ensure element is fully visible
-          element.style.overflow = 'visible';
-          element.style.height = 'auto';
-          
-          const canvas = await html2canvas(element as HTMLElement, {
-            scale: 1.5,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            backgroundColor: '#ffffff',
-            scrollX: 0,
-            scrollY: 0,
-            height: element.scrollHeight + extraPadding,
-            width: element.scrollWidth + extraPadding,
-            windowWidth: 1200,
-            windowHeight: element.scrollHeight + extraPadding
-          });
-          
-          if (canvas.width > 0 && canvas.height > 0) {
-            sections.push({
-              imageData: canvas.toDataURL('image/png', 0.95),
-              width: canvas.width,
-              height: canvas.height
-            });
-          }
-        } catch (err) {
-          console.warn('Failed to capture section:', err);
-        }
-      }
-    }
-    
-    // If no sections found, capture the whole element
-    if (sections.length === 0) {
-      const canvas = await html2canvas(clonedElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      sections.push({
-        imageData: canvas.toDataURL('image/png', 1.0),
-        width: canvas.width,
-        height: canvas.height
-      });
-    }
-    
-    document.body.removeChild(clonedElement);
-    return sections;
   };
 
   return (
