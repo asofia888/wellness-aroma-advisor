@@ -455,7 +455,7 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
           console.warn('Failed to capture section:', err);
         }
       }
-    }"}
+    }
     
     // If no sections found, capture the whole element
     if (sections.length === 0) {
