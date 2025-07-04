@@ -297,26 +297,8 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
-      const canvas = await html2canvas(originalElement, {
-        scale: 2, // Higher quality
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (document) => {
-            const clonedRoot = document.getElementById("pdf-content-area");
-            if(clonedRoot) {
-                applyPdfStylesToClonedElement(clonedRoot);
-                // Add PDF-specific styling
-                clonedRoot.style.pageBreakInside = 'avoid';
-                clonedRoot.style.overflow = 'visible';
-                clonedRoot.style.height = 'auto';
-            }
-        }
-      });
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      // Smart section-based PDF generation
+      const sections = await createPdfSections(originalElement);
       
       const pdf = new jsPDF({
         orientation: 'p',
@@ -328,65 +310,41 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfPageHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const canvasWidth = imgProps.width;
-      const canvasHeight = imgProps.height;
-
-      const margin = 40; // Increased margin
+      const margin = 30;
       const contentWidth = pdfWidth - (margin * 2);
-      const contentHeight = pdfPageHeight - (margin * 2);
+      const maxContentHeight = pdfPageHeight - (margin * 2);
       
-      const scaleFactor = contentWidth / canvasWidth;
-      const scaledHeight = canvasHeight * scaleFactor;
+      let currentPage = 0;
+      let currentYPosition = margin;
       
-      // Calculate optimal page breaks
-      const pageBreakBuffer = 50; // Buffer to avoid cutting content
-      const effectivePageHeight = contentHeight - pageBreakBuffer;
-      
-      let yPosition = 0;
-      let pageIndex = 0;
-      
-      while (yPosition < scaledHeight) {
-        if (pageIndex > 0) {
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        
+        if (currentPage > 0 && (currentYPosition + section.height) > (pdfPageHeight - margin)) {
           pdf.addPage();
+          currentPage++;
+          currentYPosition = margin;
         }
         
-        // Calculate slice dimensions
-        const remainingHeight = scaledHeight - yPosition;
-        const sliceHeight = Math.min(effectivePageHeight, remainingHeight);
-        
-        // Convert back to canvas coordinates
-        const canvasSliceHeight = sliceHeight / scaleFactor;
-        const canvasYStart = yPosition / scaleFactor;
-        
-        // Create temporary canvas for this slice
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvasWidth;
-        tempCanvas.height = canvasSliceHeight;
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        if (tempCtx) {
-          // Fill with white background
-          tempCtx.fillStyle = '#ffffff';
-          tempCtx.fillRect(0, 0, canvasWidth, canvasSliceHeight);
-          
-          // Draw the slice
-          tempCtx.drawImage(
-            canvas, 
-            0, canvasYStart, canvasWidth, canvasSliceHeight,
-            0, 0, canvasWidth, canvasSliceHeight
-          );
-          
-          const sliceImgData = tempCanvas.toDataURL('image/png', 1.0);
-          pdf.addImage(sliceImgData, 'PNG', margin, margin, contentWidth, sliceHeight);
+        if (currentPage > 0 && currentYPosition === margin) {
+          // Starting a new page
+        } else if (currentPage === 0 && i === 0) {
+          // First section on first page
         }
         
-        yPosition += sliceHeight;
-        pageIndex++;
+        const scaleFactor = Math.min(contentWidth / section.width, maxContentHeight / section.height);
+        const renderWidth = section.width * scaleFactor;
+        const renderHeight = section.height * scaleFactor;
         
-        // Safety break to avoid infinite loops
-        if (pageIndex > 50) break;
+        // Check if section fits on current page
+        if (currentYPosition + renderHeight > (pdfPageHeight - margin)) {
+          pdf.addPage();
+          currentPage++;
+          currentYPosition = margin;
+        }
+        
+        pdf.addImage(section.imageData, 'PNG', margin, currentYPosition, renderWidth, renderHeight);
+        currentYPosition += renderHeight + 20; // Add spacing between sections
       }
       
       let pdfFileName = strings.pdfFileName
@@ -400,6 +358,112 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     } finally {
       setIsGeneratingPdf(false);
     }
+  };
+
+  const createPdfSections = async (element: HTMLElement) => {
+    const sections: Array<{imageData: string, width: number, height: number}> = [];
+    
+    // Clone the element for processing
+    const clonedElement = element.cloneNode(true) as HTMLElement;
+    document.body.appendChild(clonedElement);
+    clonedElement.style.position = 'absolute';
+    clonedElement.style.top = '-9999px';
+    clonedElement.style.left = '-9999px';
+    clonedElement.style.width = '800px'; // Fixed width for consistency
+    clonedElement.style.background = '#ffffff';
+    
+    applyPdfStylesToClonedElement(clonedElement);
+    
+    // Define section selectors in order - break content into logical sections
+    const sectionSelectors = [
+      'h2', // Title section
+      '.space-y-6.text-gray-700', // Primary diagnosis content
+      'section.mt-8.pt-6', // Primary oils section
+      '#secondary-diagnoses-section', // Secondary diagnoses
+      '#ai-analysis-section-pdf' // AI analysis
+    ];
+    
+    // Process each section individually with smart grouping
+    const elementsToCapture = [];
+    
+    // Group header elements together
+    const headerElement = clonedElement.querySelector('.text-center.mb-8');
+    if (headerElement) {
+      elementsToCapture.push(headerElement);
+    }
+    
+    // Primary diagnosis content
+    const primaryContent = clonedElement.querySelector('.space-y-6.text-gray-700');
+    if (primaryContent) {
+      elementsToCapture.push(primaryContent);
+    }
+    
+    // Oil sections - capture each oil card separately
+    const oilSections = clonedElement.querySelectorAll('section.mt-8, .pdf-capture-oil-card');
+    oilSections.forEach(section => {
+      if (section && section.offsetHeight > 0) {
+        elementsToCapture.push(section);
+      }
+    });
+    
+    // Secondary diagnoses
+    const secondarySection = clonedElement.querySelector('#secondary-diagnoses-section');
+    if (secondarySection) {
+      elementsToCapture.push(secondarySection);
+    }
+    
+    // AI analysis
+    const aiSection = clonedElement.querySelector('#ai-analysis-section-pdf');
+    if (aiSection) {
+      elementsToCapture.push(aiSection);
+    }
+    
+    // Create canvas for each element
+    for (const element of elementsToCapture) {
+      if (element && element.offsetHeight > 0) {
+        try {
+          const canvas = await html2canvas(element as HTMLElement, {
+            scale: 1.5,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            scrollX: 0,
+            scrollY: 0
+          });
+          
+          if (canvas.width > 0 && canvas.height > 0) {
+            sections.push({
+              imageData: canvas.toDataURL('image/png', 0.95),
+              width: canvas.width,
+              height: canvas.height
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to capture section:', err);
+        }
+      }
+    }"}
+    
+    // If no sections found, capture the whole element
+    if (sections.length === 0) {
+      const canvas = await html2canvas(clonedElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      sections.push({
+        imageData: canvas.toDataURL('image/png', 1.0),
+        width: canvas.width,
+        height: canvas.height
+      });
+    }
+    
+    document.body.removeChild(clonedElement);
+    return sections;
   };
 
   return (
