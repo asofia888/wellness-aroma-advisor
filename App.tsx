@@ -6,6 +6,8 @@ import { Footer } from './components/Footer';
 import { Questionnaire } from './components/Questionnaire';
 import { DiagnosisResult } from './components/DiagnosisResult';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { TermsOfService } from './components/TermsOfService';
+import { DisclaimerModal } from './components/DisclaimerModal';
 import { Answer, DiagnosisPattern, EssentialOilRecommendation } from './types';
 import { 
   QUESTION_SCORING_RULES, 
@@ -30,8 +32,9 @@ export interface CombinedDiagnosis {
 
 const App: React.FC = () => {
   const [language, setLanguage] = useState<'ja' | 'en'>('ja');
-  const [currentPage, setCurrentPage] = useState<'questionnaire' | 'result' | 'privacy'>('questionnaire');
-  const [previousPage, setPreviousPage] = useState<'questionnaire' | 'result'>('questionnaire');
+  const [currentPage, setCurrentPage] = useState<'questionnaire' | 'result' | 'privacy' | 'terms'>('questionnaire');
+  const [showDisclaimer, setShowDisclaimer] = useState(true);
+  const [previousPage, setPreviousPage] = useState<'questionnaire' | 'result' | 'privacy' | 'terms'>('questionnaire');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [diagnosis, setDiagnosis] = useState<CombinedDiagnosis | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
@@ -352,6 +355,18 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [currentPage]);
 
+  const handleShowTerms = useCallback(() => {
+    if (currentPage !== 'terms') {
+        setPreviousPage(currentPage);
+    }
+    setCurrentPage('terms');
+    window.scrollTo(0, 0);
+  }, [currentPage]);
+
+  const handleAcceptDisclaimer = useCallback(() => {
+    setShowDisclaimer(false);
+  }, []);
+
   const handleBackFromPrivacy = useCallback(() => {
     setCurrentPage(previousPage);
     window.scrollTo(0, 0);
@@ -380,8 +395,16 @@ const App: React.FC = () => {
         {currentPage === 'privacy' && (
            <PrivacyPolicy onBack={handleBackFromPrivacy} language={language} />
         )}
+        {currentPage === 'terms' && (
+           <TermsOfService onBack={handleBackFromPrivacy} language={language} />
+        )}
       </main>
-      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} language={language} />
+      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTerms={handleShowTerms} language={language} />
+      <DisclaimerModal 
+        isOpen={showDisclaimer} 
+        onAccept={handleAcceptDisclaimer} 
+        language={language} 
+      />
     </div>
   );
 };

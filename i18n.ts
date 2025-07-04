@@ -15,6 +15,7 @@ export const uiStrings = {
             copyright: '漢方アロマカウンセリング. All rights reserved.',
             disclaimer: 'このアプリは古典東洋医学の考え方に基づくものであり、医学的診断や治療を代替するものではありません。',
             privacyPolicy: 'プライバシーポリシー',
+            termsOfService: '利用規約',
             buyMeACoffee: '開発者にコーヒーを奢る ☕',
         },
         questionnaire: {
@@ -71,6 +72,7 @@ export const uiStrings = {
             copyright: 'Traditional Medicine Integrated Aroma Diagnosis. All rights reserved.',
             disclaimer: 'This application is based on advanced Traditional Medicine principles and is not a substitute for medical diagnosis or treatment.',
             privacyPolicy: 'Privacy Policy',
+            termsOfService: 'Terms of Service',
             buyMeACoffee: 'Buy me a coffee ☕',
         },
         questionnaire: {
