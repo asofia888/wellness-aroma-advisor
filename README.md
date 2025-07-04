@@ -1,6 +1,6 @@
-# 東京医学統合アロマ診断システム
+# 東洋医学統合アロマ診断システム
 
-高度な東京医学理論に基づく次世代精油カウンセリングシステム
+高度な東洋医学理論に基づく次世代精油カウンセリングシステム
 
 ## 🌟 特徴
 
@@ -72,4 +72,4 @@ npm run preview
 
 ## 📄 ライセンス
 
-All rights reserved - Tokyo Medical Integrated Aroma Diagnosis System
+All rights reserved - Traditional Medicine Integrated Aroma Diagnosis System
