@@ -444,13 +444,15 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         </div>
       </div>
       
-      <div className="text-center mt-10 space-y-4">
+      <div className="text-center mt-10 space-y-6">
         <Button onClick={handleExportPDF} variant="primary" size="large" disabled={isAnalyzing}>
           {strings.exportPDFButton || 'PDFをエクスポート'}
         </Button>
-        <Button onClick={onStartOver} variant="secondary" size="large" disabled={isAnalyzing}>
-          {strings.startOverButton}
-        </Button>
+        <div className="mt-8">
+          <Button onClick={onStartOver} variant="secondary" size="large" disabled={isAnalyzing}>
+            {strings.startOverButton}
+          </Button>
+        </div>
       </div>
     </>
   );
