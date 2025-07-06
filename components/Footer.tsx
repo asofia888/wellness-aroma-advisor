@@ -13,38 +13,39 @@ export const Footer: React.FC<FooterProps> = ({ onShowPrivacyPolicy, onShowTerms
   return (
     <footer className="w-full bg-emerald-700 text-emerald-100 py-6 mt-12">
       <div className="container mx-auto px-4 text-center">
-        <p className="text-sm" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
-          &copy; {new Date().getFullYear()} {strings.copyright}
+
+        {/* Copyright */}
+        <p className="text-sm mb-2 px-2" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
+          &copy; {new Date().getFullYear()}
         </p>
-        <p className="text-xs mt-1" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
+        <p className="text-xs mb-2 px-2" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
+          {strings.copyright}
+        </p>
+
+        {/* Disclaimer */}
+        <p className="text-xs mb-3 leading-relaxed px-2" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
           {strings.disclaimer}
         </p>
-        <div className="mt-4 text-sm flex justify-center items-center space-x-4">
+
+        {/* Links - Mobile responsive */}
+        <div className="text-sm">
+          <div className="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <button 
-                onClick={onShowPrivacyPolicy} 
-                className="underline hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300 rounded px-1"
-                style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+              onClick={onShowPrivacyPolicy} 
+              className="underline hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300 rounded px-1"
+              style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
             >
-                {strings.privacyPolicy}
+              {strings.privacyPolicy}
             </button>
-            <span className="text-emerald-300" aria-hidden="true">|</span>
+            <span className="hidden sm:inline text-emerald-300" aria-hidden="true">|</span>
             <button 
-                onClick={onShowTerms} 
-                className="underline hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300 rounded px-1"
-                style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+              onClick={onShowTerms} 
+              className="underline hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300 rounded px-1"
+              style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
             >
-                {strings.termsOfService}
+              {strings.termsOfService}
             </button>
-            <span className="text-emerald-300" aria-hidden="true">|</span>
-            <a
-                href="https://buymeacoffee.com/asofia"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300 rounded px-1"
-                style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
-            >
-                {strings.buyMeACoffee}
-            </a>
+          </div>
         </div>
       </div>
     </footer>

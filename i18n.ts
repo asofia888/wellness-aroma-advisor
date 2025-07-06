@@ -597,9 +597,8 @@ export const getAIPrompt = (
 
 上記の情報を統合し、この利用者個人に向けた総合的な分析メッセージを、以下の構成で生成してください。
 
-1.  **呼びかけ:** 利用者に優しく呼びかける一文から始めてください。
-2.  **総合分析:** 診断結果と、ご本人が気にしている不調（身体・心）がどのようにつながっているかを、優しく解説してください。（約200〜300字）
-3.  **励ましのメッセージ:** 最も大切な養生のポイントを1つに絞って伝え、力強く励ますような一文で締めくくってください。
+1.  **総合分析:** 診断結果と、ご本人が気にしている不調（身体・心）がどのようにつながっているかを、優しく解説してください。（約200〜300字）
+2.  **養生のポイント:** 最も大切な養生のポイントを1つに絞って、具体的で実践しやすい形で伝えてください。
 
 生成する文章は、全体として一つの連続したテキストとしてください。Markdownのヘッダー（#など）は使用しないでください。
 `;
@@ -630,9 +629,8 @@ This is not a medical diagnosis but a self-care suggestion as part of a lifestyl
 
 Integrate the above information and generate a comprehensive analysis message for this individual user with the following structure:
 
-1.  **Greeting:** Start with a gentle, welcoming sentence for the user.
-2.  **Comprehensive Analysis:** Gently explain how the diagnosis results and the user's stated concerns (physical and mental) are connected. (Approximately 100-150 words)
-3.  **Message of Encouragement:** Focus on the single most important point for their well-being and conclude with a powerful, encouraging sentence.
+1.  **Comprehensive Analysis:** Gently explain how the diagnosis results and the user's stated concerns (physical and mental) are connected. (Approximately 100-150 words)
+2.  **Wellness Point:** Focus on the single most important point for their well-being and provide specific, practical guidance.
 
 The generated text should be a single, continuous block of text. Do not use Markdown headers (#, ##, etc.).
 `;

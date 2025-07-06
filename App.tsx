@@ -1,6 +1,5 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { Questionnaire } from './components/Questionnaire';
@@ -303,28 +302,29 @@ const App: React.FC = () => {
     setCurrentPage('result');
     window.scrollTo(0, 0); 
 
-    // 4. Start AI analysis (asynchronously)
+    // 4. Start AI analysis (asynchronously) - using secure API route
     try {
-        if (!process.env.API_KEY) {
-          throw new Error("API_KEY is not configured.");
-        }
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        
         const prompt = getAIPrompt(language, finalDiagnosis, submittedAnswers, QUESTIONS_DATA);
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-preview-04-17',
-            contents: prompt,
-            generationConfig: {
-                temperature: 0.7,
-                topP: 0.9,
-                topK: 40,
-                maxOutputTokens: 2048,
-                responseMimeType: 'text/plain'
-            }
+        const response = await fetch('/api/ai-analysis', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt })
         });
 
-        setAiAnalysis(response.text);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.text) {
+            setAiAnalysis(data.text);
+        } else {
+            throw new Error(data.error || 'Unknown error occurred');
+        }
 
     } catch (error) {
         console.error("AI analysis failed:", error);

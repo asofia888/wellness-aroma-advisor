@@ -1,6 +1,4 @@
-import React, { useRef, useState } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import React from 'react';
 import { DiagnosisPattern, EssentialOilRecommendation, GeneralOilApplication, AcupointApplication } from '../types';
 import { Button } from './Button';
 import type { CombinedDiagnosis } from '../App';
@@ -42,7 +40,7 @@ const AiAnalysisCard: React.FC<{ analysis: string; isLoading: boolean; language:
   if (!analysis) return null;
 
   return (
-    <section id="ai-analysis-section-pdf" className="mt-10 p-6 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 rounded-lg shadow-xl border border-purple-200">
+    <section className="mt-10 p-6 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 rounded-lg shadow-xl border border-purple-200">
       <h3 className="text-xl md:text-2xl font-semibold text-purple-700 mb-4 text-center" style={{ fontFamily: "'Shippori Mincho', serif" }}>
         💎 {strings.aiAnalysisTitle} 💎
       </h3>
@@ -72,7 +70,7 @@ const OilCard: React.FC<{ oil: EssentialOilRecommendation; isSecondary?: boolean
     const strings = uiStrings[language].result;
     const roleText = oil.role ? (language === 'ja' ? `${oil.role}：` : `${oil.role}: `) : '';
     return (
-        <div className={`pdf-capture-oil-card p-4 md:p-6 rounded-lg shadow-md border transform transition-all hover:scale-105 hover:shadow-lg ${isSecondary ? 'bg-indigo-50 border-indigo-200' : 'bg-emerald-50 border-emerald-200'}`}>
+        <div className={`p-4 md:p-6 rounded-lg shadow-md border transform transition-all hover:scale-105 hover:shadow-lg ${isSecondary ? 'bg-indigo-50 border-indigo-200' : 'bg-emerald-50 border-emerald-200'}`}>
             <h4 className={`text-lg md:text-xl font-semibold mb-2 flex items-center ${isSecondary ? 'text-indigo-700' : 'text-emerald-700'}`}>
             <span className="text-xl md:text-2xl mr-2">{oil.icon || '💧'}</span>
             {roleText}{oil.name}
@@ -134,244 +132,13 @@ const AcupointCard: React.FC<{ acupoint: AcupointApplication, language: 'ja' | '
     );
 };
 
-
-const applyPdfStylesToClonedElement = (clonedElement: HTMLElement) => {
-    clonedElement.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-
-    const allElements = clonedElement.querySelectorAll<HTMLElement>('*');
-    allElements.forEach(el => {
-        el.style.setProperty('transition', 'none', 'important');
-    });
-
-    const textBlocks = clonedElement.querySelectorAll<HTMLElement>('p, li, div[class*="text-"], span[class*="text-"], summary, h5, h3, h2, h1');
-    textBlocks.forEach(el => {
-        if (!el.style.fontFamily || !el.style.fontFamily.includes('Shippori Mincho')) {
-            el.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-        }
-        el.style.setProperty('line-height', '1.7', 'important');
-        el.style.setProperty('letter-spacing', '0.015em', 'important');
-        el.style.setProperty('margin-bottom', '3px', 'important');
-    });
-    
-    const shipporiHeadings = clonedElement.querySelectorAll<HTMLElement>(
-      'h1, h2, h3.text-emerald-700, h4.text-emerald-700, h3.text-indigo-700, h4.text-indigo-700, h3.text-purple-700, h3[style*="font-family: \'Shippori Mincho\'"], .font-bold.text-emerald-700'
-    );
-    shipporiHeadings.forEach(h => {
-        h.style.setProperty('font-family', "'Shippori Mincho', serif", 'important');
-        h.style.setProperty('margin-bottom', '8px', 'important');
-        h.style.setProperty('letter-spacing', '0.03em', 'important');
-    });
-
-    const oilCards = clonedElement.querySelectorAll<HTMLElement>('.pdf-capture-oil-card');
-    oilCards.forEach(oilCardEl => {
-        oilCardEl.style.setProperty('transform', 'none', 'important');
-        oilCardEl.style.setProperty('box-shadow', '0 1px 2px 0 rgba(0, 0, 0, 0.05)', 'important');
-        oilCardEl.style.setProperty('padding', '12px', 'important');
-        if (oilCardEl.classList.contains('bg-indigo-50')) {
-             oilCardEl.style.setProperty('border', '1px solid #c7d2fe', 'important');
-        } else {
-             oilCardEl.style.setProperty('border', '1px solid #a7f3d0', 'important');
-        }
-        oilCardEl.style.setProperty('margin-bottom', '12px', 'important');
-
-        const oilTitle = oilCardEl.querySelector<HTMLElement>('h4');
-        if (oilTitle) {
-            oilTitle.style.setProperty('font-family', "'Shippori Mincho', serif", 'important');
-            oilTitle.style.setProperty('line-height', '1.5', 'important');
-            oilTitle.style.setProperty('margin-bottom', '6px', 'important');
-        }
-
-        const oilDescription = oilCardEl.querySelector<HTMLElement>('p');
-        if (oilDescription) {
-            oilDescription.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-            oilDescription.style.setProperty('margin-bottom', '10px', 'important');
-            oilDescription.style.setProperty('line-height', '1.8', 'important');
-            oilDescription.style.setProperty('font-size', '10pt', 'important');
-        }
-        
-        const detailLists = oilCardEl.querySelectorAll<HTMLElement>('ul');
-        detailLists.forEach(ul => {
-            ul.style.setProperty('padding-left', '15px', 'important');
-            const listItems = ul.querySelectorAll<HTMLElement>('li');
-            listItems.forEach(li => {
-                li.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-                li.style.setProperty('margin-bottom', '5px', 'important');
-                li.style.setProperty('line-height', '1.6', 'important');
-                li.style.setProperty('font-size', '9.5pt', 'important');
-            });
-        });
-
-        const detailsElements = oilCardEl.querySelectorAll<HTMLDetailsElement>('details');
-        detailsElements.forEach(detailsEl => {
-            detailsEl.setAttribute('open', ''); 
-            const summaryEl = detailsEl.querySelector<HTMLElement>('summary');
-            if (summaryEl) {
-                summaryEl.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-                summaryEl.style.setProperty('margin-bottom', '5px', 'important');
-                summaryEl.style.setProperty('font-weight', '500', 'important');
-            }
-        });
-    });
-
-    const aiAnalysisSection = clonedElement.querySelector<HTMLElement>('#ai-analysis-section-pdf');
-    if(aiAnalysisSection) {
-        aiAnalysisSection.style.setProperty('background', '#fdf4ff', 'important');
-        aiAnalysisSection.style.setProperty('border', '1px solid #e9d5ff', 'important');
-        aiAnalysisSection.style.setProperty('padding', '15px', 'important');
-        aiAnalysisSection.style.setProperty('margin-bottom', '25px', 'important');
-        aiAnalysisSection.style.setProperty('margin-top', '25px', 'important');
-        aiAnalysisSection.style.setProperty('border-radius', '8px', 'important');
-        
-        const aiTitle = aiAnalysisSection.querySelector('h3');
-        if(aiTitle) {
-            aiTitle.style.setProperty('font-family', "'Shippori Mincho', serif", 'important');
-            aiTitle.style.setProperty('color', '#6b21a8', 'important');
-            aiTitle.style.setProperty('margin-bottom', '10px', 'important');
-        }
-        const aiContent = aiAnalysisSection.querySelector<HTMLElement>('div');
-        if(aiContent) {
-            aiContent.style.setProperty('font-family', "'Noto Sans JP', sans-serif", 'important');
-            aiContent.style.setProperty('line-height', '1.8', 'important');
-            aiContent.style.setProperty('font-size', '10pt', 'important');
-            aiContent.style.setProperty('white-space', 'pre-wrap', 'important');
-        }
-    }
-
-    const secondaryDiagnosisSection = clonedElement.querySelector<HTMLElement>('#secondary-diagnoses-section');
-    if (secondaryDiagnosisSection) {
-        secondaryDiagnosisSection.style.setProperty('border-top', '1px solid #a7f3d0', 'important');
-        secondaryDiagnosisSection.style.setProperty('padding-top', '20px', 'important');
-        secondaryDiagnosisSection.style.setProperty('margin-top', '25px', 'important');
-        const secondaryTitle = secondaryDiagnosisSection.querySelector<HTMLElement>('h3');
-        if (secondaryTitle) {
-            secondaryTitle.style.setProperty('font-family', "'Shippori Mincho', serif", 'important');
-            secondaryTitle.style.setProperty('color', '#4338ca', 'important');
-        }
-    }
-     const secondaryPatternBlocks = clonedElement.querySelectorAll<HTMLElement>('.secondary-pattern-block');
-     secondaryPatternBlocks.forEach(block => {
-        block.style.setProperty('background-color', '#e0e7ff', 'important');
-        block.style.setProperty('border', '1px solid #a5b4fc', 'important');
-        block.style.setProperty('padding', '15px', 'important');
-        block.style.setProperty('margin-bottom', '15px', 'important');
-        block.style.setProperty('border-radius', '8px', 'important');
-     });
-
-
-    const mainTitleElements = clonedElement.querySelectorAll<HTMLElement>(
-      '.text-2xl.md\\:text-3xl.font-bold.text-emerald-700, .text-xl.md\\:text-2xl.font-semibold.text-emerald-700, .text-xl.md\\:text-2xl.font-semibold.text-indigo-700, .text-xl.md\\:text-2xl.font-semibold.text-purple-700'
-    );
-    mainTitleElements.forEach(el => {
-      el.style.setProperty('font-family', "'Shippori Mincho', serif", 'important');
-    });
-};
-
-
 export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onStartOver, aiAnalysis, isAnalyzing, language }) => {
   const { primary, secondaries } = diagnosis;
-  const pdfContentRef = useRef<HTMLDivElement>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const strings = uiStrings[language].result;
-
-  const handleDownloadPdf = async () => {
-    if (!pdfContentRef.current || isAnalyzing) return;
-    setIsGeneratingPdf(true);
-    
-    const originalElement = pdfContentRef.current;
-
-    // フォントの読み込みを保証
-    if (document.fonts && document.fonts.ready) {
-      try {
-        await document.fonts.ready;
-      } catch (e) {
-        // フォント読み込み失敗時も続行
-      }
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 500)); // 500msに延長
-
-    try {
-      const canvas = await html2canvas(originalElement, {
-        scale: 1.5, 
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#fff', // 白背景を明示
-        onclone: (document) => {
-            const clonedRoot = document.getElementById("pdf-content-area");
-            if(clonedRoot) {
-                applyPdfStylesToClonedElement(clonedRoot);
-            } else {
-                console.warn("PDF generation: Cloned root element for styling not found.");
-            }
-        }
-      });
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'pt',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfPageHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const canvasWidth = imgProps.width;
-      const canvasHeight = imgProps.height;
-
-      const margin = 35; 
-      const contentWidth = pdfWidth - (margin * 2);
-      const contentHeight = pdfPageHeight - (margin * 2);
-      
-      const imgRenderHeight = (canvasHeight * contentWidth) / canvasWidth;
-      const imgRenderWidth = contentWidth;
-
-      let currentPositionOnCanvas = 0; 
-
-      while (currentPositionOnCanvas < canvasHeight) {
-        if (currentPositionOnCanvas > 0) { 
-          pdf.addPage(); 
-        }
-        
-        const sourceSliceHeightOnCanvas = (contentHeight / imgRenderHeight) * canvasHeight;
-        const actualSourceSliceHeight = Math.min(sourceSliceHeightOnCanvas, canvasHeight - currentPositionOnCanvas);
-
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvasWidth; 
-        tempCanvas.height = actualSourceSliceHeight; 
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        if (tempCtx) {
-            tempCtx.drawImage(canvas, 0, currentPositionOnCanvas, canvasWidth, actualSourceSliceHeight, 0, 0, canvasWidth, actualSourceSliceHeight);
-            const pageImgData = tempCanvas.toDataURL('image/png');
-            const renderedSliceHeightOnPdf = (actualSourceSliceHeight * imgRenderWidth) / canvasWidth;
-            pdf.addImage(pageImgData, 'PNG', margin, margin, imgRenderWidth, renderedSliceHeightOnPdf);
-        }
-        
-        currentPositionOnCanvas += actualSourceSliceHeight;
-        if (currentPositionOnCanvas >= canvasHeight - 1) { 
-            break;
-        }
-      }
-      
-      let pdfFileName = strings.pdfFileName
-        .replace('{primary_name}', primary.name.replace(/[\\/*?"<>|:]/g, '_'))
-        .replace('{others}', secondaries.length > 0 ? (language === 'ja' ? '他' : '_etc') : '');
-      pdf.save(pdfFileName);
-
-    } catch (error) {
-      console.error("PDF generation failed:", error);
-      alert(strings.pdfError);
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  };
 
   return (
     <>
-      <div id="pdf-content-area" ref={pdfContentRef} className="p-4 md:p-8 bg-white shadow-2xl rounded-xl border border-emerald-300 max-w-2xl mx-auto">
+      <div className="p-4 md:p-8 bg-white shadow-2xl rounded-xl border border-emerald-300 max-w-2xl mx-auto">
         <div style={{ fontFamily: "'Shippori Mincho', serif" }}>
             {/* Primary Diagnosis Section */}
             <div className="text-center mb-8">
@@ -514,12 +281,9 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         </div>
       </div>
       
-      <div className="text-center mt-10 space-x-4">
-        <Button onClick={onStartOver} variant="secondary" size="large" disabled={isGeneratingPdf || isAnalyzing}>
+      <div className="text-center mt-10">
+        <Button onClick={onStartOver} variant="secondary" size="large" disabled={isAnalyzing}>
           {strings.startOverButton}
-        </Button>
-        <Button onClick={handleDownloadPdf} variant="primary" size="large" disabled={isGeneratingPdf || isAnalyzing}>
-          {isGeneratingPdf ? strings.pdfGenerating : (isAnalyzing ? strings.aiAnalyzingButton : strings.saveAsPdfButton)}
         </Button>
       </div>
     </>
