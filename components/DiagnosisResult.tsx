@@ -141,15 +141,20 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
 
   const handleExportPDF = async () => {
     const element = document.getElementById('diagnosis-result-content');
-    if (!element) return;
+    if (!element) {
+      alert(language === 'ja' ? '診断結果が見つかりません。' : 'Diagnosis result not found.');
+      return;
+    }
 
     // ローディング状態を表示
     const loadingMessage = language === 'ja' ? 'PDFを生成中...' : 'Generating PDF...';
     alert(loadingMessage);
 
     try {
-      // PDF用のスタイルを適用したクローンを作成
+      // 元の要素をコピー
       const clonedElement = element.cloneNode(true) as HTMLElement;
+      
+      // 基本的なスタイルを設定
       clonedElement.style.width = '800px';
       clonedElement.style.maxWidth = '800px';
       clonedElement.style.margin = '0';
@@ -162,10 +167,10 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       clonedElement.style.boxShadow = 'none';
       clonedElement.style.borderRadius = '0';
       clonedElement.style.border = 'none';
-      clonedElement.style.transform = 'none';
-      clonedElement.style.transformOrigin = 'initial';
-      clonedElement.style.backfaceVisibility = 'hidden';
-      clonedElement.style.webkitBackfaceVisibility = 'hidden';
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.top = '0';
+      clonedElement.style.visibility = 'hidden';
 
       // 詳細要素を開く
       const details = clonedElement.querySelectorAll('details');
@@ -176,83 +181,30 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       // ボタンを非表示
       const buttons = clonedElement.querySelectorAll('button');
       buttons.forEach(button => {
-        button.style.display = 'none';
+        (button as HTMLElement).style.display = 'none';
       });
 
-      // セクションの改ページ設定
-      const sections = clonedElement.querySelectorAll('section');
-      sections.forEach(section => {
-        section.style.pageBreakInside = 'avoid';
-        section.style.breakInside = 'avoid';
-        section.style.marginBottom = '20px';
-      });
-
-      // カード要素の改ページ設定
-      const cards = clonedElement.querySelectorAll('[class*="bg-emerald-50"], [class*="bg-indigo-50"], [class*="bg-purple-50"], [class*="bg-teal-50"], [class*="bg-lime-50"]');
-      cards.forEach(card => {
-        (card as HTMLElement).style.pageBreakInside = 'avoid';
-        (card as HTMLElement).style.breakInside = 'avoid';
-        (card as HTMLElement).style.marginBottom = '15px';
-        (card as HTMLElement).style.borderRadius = '8px';
-        (card as HTMLElement).style.padding = '15px';
-      });
-
-      // リスト要素の改ページ設定
-      const lists = clonedElement.querySelectorAll('ul, ol');
-      lists.forEach(list => {
-        (list as HTMLElement).style.pageBreakInside = 'avoid';
-        (list as HTMLElement).style.breakInside = 'avoid';
-      });
-
-      // 段落の改ページ設定
-      const paragraphs = clonedElement.querySelectorAll('p');
-      paragraphs.forEach(p => {
-        (p as HTMLElement).style.pageBreakInside = 'avoid';
-        (p as HTMLElement).style.breakInside = 'avoid';
-        (p as HTMLElement).style.marginBottom = '8px';
-      });
-
-      // 見出しの改ページ設定
-      const headings = clonedElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      headings.forEach(heading => {
-        (heading as HTMLElement).style.pageBreakAfter = 'avoid';
-        (heading as HTMLElement).style.breakAfter = 'avoid';
-        (heading as HTMLElement).style.marginTop = '20px';
-        (heading as HTMLElement).style.marginBottom = '10px';
-      });
-
-      // 一時的にDOMに追加
+      // DOMに追加
       document.body.appendChild(clonedElement);
-      clonedElement.style.position = 'absolute';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.top = '0';
-      clonedElement.style.visibility = 'hidden';
-      clonedElement.style.opacity = '0';
 
       // 少し待ってからキャンバス生成
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       const canvas = await html2canvas(clonedElement, {
-        scale: 1,
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         width: 800,
         height: clonedElement.scrollHeight,
         logging: false,
-        removeContainer: true,
-        foreignObjectRendering: false,
-        imageTimeout: 0,
-        ignoreElements: (element) => {
-          return element.tagName === 'BUTTON' || 
-                 element.classList.contains('animate-spin') ||
-                 (element as HTMLElement).style.display === 'none';
-        }
+        removeContainer: true
       });
 
       // クローン要素を削除
       document.body.removeChild(clonedElement);
 
+      // PDF生成
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -264,42 +216,28 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       let position = margin;
       let pageCount = 1;
 
-      // ヘッダーを追加
-      pdf.setFontSize(12);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 10, { align: 'center' });
-
       // 最初のページを追加
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position + 10, imgWidth, imgHeight);
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
       
       // ページ番号を追加
       pdf.setFontSize(10);
       pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
       
-      heightLeft -= (pdfHeight - (margin * 2) - 20);
+      heightLeft -= (pdfHeight - (margin * 2));
 
-      // 残りのページを追加（重複を防ぐため、より慎重に計算）
+      // 残りのページを追加
       while (heightLeft > 0) {
         pdf.addPage();
         pageCount++;
+        position = heightLeft - imgHeight + margin;
         
-        // 正確な位置計算
-        const pageHeight = pdfHeight - (margin * 2) - 20;
-        const remainingHeight = Math.max(0, heightLeft - pageHeight);
-        position = heightLeft - remainingHeight - imgHeight + margin;
-        
-        // ヘッダーを追加
-        pdf.setFontSize(12);
-        pdf.setTextColor(100, 100, 100);
-        pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 10, { align: 'center' });
-        
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position + 10, imgWidth, imgHeight);
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
         
         // ページ番号を追加
         pdf.setFontSize(10);
         pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
         
-        heightLeft = remainingHeight;
+        heightLeft -= (pdfHeight - (margin * 2));
       }
 
       const filename = `${strings.pdfFilename || 'diagnosis-result'}-${new Date().toISOString().split('T')[0]}.pdf`;
