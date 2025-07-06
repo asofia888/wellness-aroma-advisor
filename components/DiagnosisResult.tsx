@@ -162,6 +162,10 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       clonedElement.style.boxShadow = 'none';
       clonedElement.style.borderRadius = '0';
       clonedElement.style.border = 'none';
+      clonedElement.style.transform = 'none';
+      clonedElement.style.transformOrigin = 'initial';
+      clonedElement.style.backfaceVisibility = 'hidden';
+      clonedElement.style.webkitBackfaceVisibility = 'hidden';
 
       // 詳細要素を開く
       const details = clonedElement.querySelectorAll('details');
@@ -222,16 +226,28 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       clonedElement.style.position = 'absolute';
       clonedElement.style.left = '-9999px';
       clonedElement.style.top = '0';
+      clonedElement.style.visibility = 'hidden';
+      clonedElement.style.opacity = '0';
+
+      // 少し待ってからキャンバス生成
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const canvas = await html2canvas(clonedElement, {
-        scale: 2,
+        scale: 1,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         width: 800,
         height: clonedElement.scrollHeight,
         logging: false,
-        removeContainer: true
+        removeContainer: true,
+        foreignObjectRendering: false,
+        imageTimeout: 0,
+        ignoreElements: (element) => {
+          return element.tagName === 'BUTTON' || 
+                 element.classList.contains('animate-spin') ||
+                 (element as HTMLElement).style.display === 'none';
+        }
       });
 
       // クローン要素を削除
@@ -262,11 +278,15 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       
       heightLeft -= (pdfHeight - (margin * 2) - 20);
 
-      // 残りのページを追加
+      // 残りのページを追加（重複を防ぐため、より慎重に計算）
       while (heightLeft > 0) {
         pdf.addPage();
         pageCount++;
-        position = heightLeft - imgHeight + margin;
+        
+        // 正確な位置計算
+        const pageHeight = pdfHeight - (margin * 2) - 20;
+        const remainingHeight = Math.max(0, heightLeft - pageHeight);
+        position = heightLeft - remainingHeight - imgHeight + margin;
         
         // ヘッダーを追加
         pdf.setFontSize(12);
@@ -279,7 +299,7 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         pdf.setFontSize(10);
         pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
         
-        heightLeft -= (pdfHeight - (margin * 2) - 20);
+        heightLeft = remainingHeight;
       }
 
       const filename = `${strings.pdfFilename || 'diagnosis-result'}-${new Date().toISOString().split('T')[0]}.pdf`;
