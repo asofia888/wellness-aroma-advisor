@@ -24,8 +24,8 @@ export default async function handler(req, res) {
 
     // Generate content using Gemini AI
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
-      contents: prompt,
+      model: 'gemini-2.0-flash-exp',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
         topP: 0.9,
@@ -37,14 +37,15 @@ export default async function handler(req, res) {
 
     // Return the generated text
     return res.status(200).json({ 
-      text: response.text,
+      text: response.candidates[0].content.parts[0].text,
       success: true 
     });
 
   } catch (error) {
-    console.error('AI analysis error:', error);
+    console.error('AI analysis error:', error.message);
     return res.status(500).json({ 
       error: 'Failed to generate AI analysis',
+      details: error.message,
       success: false 
     });
   }
