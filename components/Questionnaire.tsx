@@ -4,6 +4,7 @@ import { Question, QuestionCategory } from '../types';
 import { QuestionCard } from './QuestionCard';
 import { Button } from './Button';
 import { getQuestionsData, uiStrings } from '../i18n';
+import { sanitizeUserInput } from '../utils/sanitizer';
 
 
 interface QuestionnaireProps {
@@ -29,10 +30,15 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({ onSubmit, language
       alert(strings.validationAlert);
       return;
     }
+    
+    // ユーザー入力をサニタイズ
+    const sanitizedPhysicalText = sanitizeUserInput(physicalDiscomfortsText);
+    const sanitizedMentalText = sanitizeUserInput(mentalEmotionalStateText);
+    
     onSubmit({
       ...currentAnswers,
-      physicalDiscomfortsText,
-      mentalEmotionalStateText,
+      physicalDiscomfortsText: sanitizedPhysicalText,
+      mentalEmotionalStateText: sanitizedMentalText,
     });
   };
 
@@ -82,10 +88,15 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({ onSubmit, language
               value={physicalDiscomfortsText}
               onChange={(e) => setPhysicalDiscomfortsText(e.target.value)}
               rows={4}
+              maxLength={5000}
               className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-700"
               placeholder={strings.physicalDiscomfortsPlaceholder}
               style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+              aria-describedby="physicalDiscomforts-help"
             />
+            <div id="physicalDiscomforts-help" className="mt-1 text-xs text-gray-500">
+              {physicalDiscomfortsText.length}/5000文字
+            </div>
           </div>
           <div>
             <label htmlFor="mentalEmotionalState" className="block text-lg font-medium text-gray-700 mb-1" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
@@ -96,10 +107,15 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({ onSubmit, language
               value={mentalEmotionalStateText}
               onChange={(e) => setMentalEmotionalStateText(e.target.value)}
               rows={4}
+              maxLength={5000}
               className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-700"
               placeholder={strings.mentalEmotionalStatePlaceholder}
               style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+              aria-describedby="mentalEmotionalState-help"
             />
+            <div id="mentalEmotionalState-help" className="mt-1 text-xs text-gray-500">
+              {mentalEmotionalStateText.length}/5000文字
+            </div>
           </div>
         </div>
       </section>

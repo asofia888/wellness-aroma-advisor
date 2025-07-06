@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from './Button';
 import { getPrivacyPolicy, uiStrings } from '../i18n';
+import { sanitizeStaticContent } from '../utils/sanitizer';
 
 interface PrivacyPolicyProps {
   onBack: () => void;
@@ -34,7 +35,12 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack, language }
       {policy.sections.map((section, index) => (
          <PolicySection key={index} title={section.title}>
             {section.content.map((p, pIndex) => (
-                <div key={pIndex} dangerouslySetInnerHTML={{ __html: p }} />
+                <div 
+                  key={pIndex} 
+                  dangerouslySetInnerHTML={{ 
+                    __html: sanitizeStaticContent(p)
+                  }} 
+                />
             ))}
          </PolicySection>
       ))}
