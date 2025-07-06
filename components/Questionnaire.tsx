@@ -5,6 +5,7 @@ import { QuestionCard } from './QuestionCard';
 import { Button } from './Button';
 import { getQuestionsData, uiStrings } from '../i18n';
 import { sanitizeUserInput } from '../utils/sanitizer';
+import { logger } from '../utils/logger';
 
 
 interface QuestionnaireProps {
@@ -27,6 +28,11 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({ onSubmit, language
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (Object.keys(currentAnswers).length < questions.length) {
+      logger.warn('Form validation failed', undefined, {
+        answeredQuestions: Object.keys(currentAnswers).length,
+        totalQuestions: questions.length,
+        language
+      });
       alert(strings.validationAlert);
       return;
     }
@@ -34,6 +40,16 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({ onSubmit, language
     // ユーザー入力をサニタイズ
     const sanitizedPhysicalText = sanitizeUserInput(physicalDiscomfortsText);
     const sanitizedMentalText = sanitizeUserInput(mentalEmotionalStateText);
+    
+    logger.trackUserAction('questionnaire_submitted', {
+      language,
+      answeredQuestions: Object.keys(currentAnswers).length,
+      totalQuestions: questions.length,
+      hasPhysicalText: sanitizedPhysicalText.length > 0,
+      hasMentalText: sanitizedMentalText.length > 0,
+      physicalTextLength: sanitizedPhysicalText.length,
+      mentalTextLength: sanitizedMentalText.length
+    });
     
     onSubmit({
       ...currentAnswers,

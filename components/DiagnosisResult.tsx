@@ -5,6 +5,8 @@ import type { CombinedDiagnosis } from '../App';
 import { uiStrings } from '../i18n';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { ErrorHandler, ErrorType } from '../utils/errorHandler';
+import { logger, measureAsyncPerformance } from '../utils/logger';
 
 interface DetailItemProps {
   label: string;
@@ -19,6 +21,8 @@ export interface DiagnosisResultProps {
   isAnalyzing: boolean;
   language: 'ja' | 'en';
   onExportPDF?: () => void;
+  onShowSuccess?: (message: string) => void;
+  onShowError?: (error: any) => void;
 }
 
 const AiAnalysisCard: React.FC<{ analysis: string; isLoading: boolean; language: 'ja' | 'en' }> = ({ analysis, isLoading, language }) => {
@@ -135,20 +139,45 @@ const AcupointCard: React.FC<{ acupoint: AcupointApplication, language: 'ja' | '
     );
 };
 
-export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onStartOver, aiAnalysis, isAnalyzing, language, onExportPDF }) => {
+export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ 
+  diagnosis, 
+  onStartOver, 
+  aiAnalysis, 
+  isAnalyzing, 
+  language, 
+  onExportPDF,
+  onShowSuccess,
+  onShowError 
+}) => {
   const { primary, secondaries } = diagnosis;
   const strings = uiStrings[language].result;
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = measureAsyncPerformance(async () => {
+    logger.trackUserAction('pdf_export_started', { language });
+    
     const element = document.getElementById('diagnosis-result-content');
     if (!element) {
-      console.error('PDF Export: Element not found');
-      alert(language === 'ja' ? '診断結果が見つかりません。' : 'Diagnosis result not found.');
+      const error = ErrorHandler.createError(
+        'PDF Export: Element not found',
+        ErrorType.PDF_GENERATION,
+        { elementId: 'diagnosis-result-content' }
+      );
+      ErrorHandler.logError(error);
+      logger.error('PDF export failed - element not found', undefined, {
+        elementId: 'diagnosis-result-content',
+        language
+      });
+      if (onShowError) {
+        onShowError(error);
+      } else {
+        logger.warn('Fallback alert shown for PDF error', undefined, { language });
+        alert(language === 'ja' ? '診断結果が見つかりません。' : 'Diagnosis result not found.');
+      }
       return;
     }
 
     try {
-      console.log('PDF Export: Starting export process');
+      logger.info('PDF Export: Starting export process', { language });
       
       // 元の要素をコピー
       const clonedElement = element.cloneNode(true) as HTMLElement;
@@ -208,12 +237,12 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
 
       // DOMに追加
       document.body.appendChild(clonedElement);
-      console.log('PDF Export: Element added to DOM');
+      logger.debug('PDF Export: Element added to DOM');
 
       // レンダリング待機
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      console.log('PDF Export: Starting canvas generation');
+      logger.debug('PDF Export: Starting canvas generation');
       const canvas = await html2canvas(clonedElement, {
         scale: 1.5,
         useCORS: true,
@@ -234,7 +263,11 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         }
       });
 
-      console.log('PDF Export: Canvas generated successfully', canvas.width, 'x', canvas.height);
+      logger.info('PDF Export: Canvas generated successfully', {
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        language
+      });
 
       // クローン要素を削除
       if (clonedElement.parentNode) {
@@ -261,7 +294,7 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       let currentHeight = 0;
       let pageNumber = 1;
 
-      console.log('PDF Export: Starting PDF generation');
+      logger.debug('PDF Export: Starting PDF generation');
 
       // 最初のページ
       pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin, imgWidth, imgHeight);
@@ -294,31 +327,50 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       const filename = `aroma-counseling-result-${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(filename);
       
-      console.log('PDF Export: PDF saved successfully');
+      logger.info('PDF Export: PDF saved successfully', {
+        filename,
+        language,
+        pageCount: pageNumber
+      });
       
       // 成功メッセージを表示
       const successMessage = language === 'ja' ? 'PDFが正常に生成されました！' : 'PDF generated successfully!';
-      alert(successMessage);
+      logger.trackUserAction('pdf_export_completed', { language, filename });
+      if (onShowSuccess) {
+        onShowSuccess(successMessage);
+      } else {
+        logger.warn('Fallback alert shown for PDF success', undefined, { language });
+        alert(successMessage);
+      }
       
       if (onExportPDF) {
         onExportPDF();
       }
     } catch (error) {
-      console.error('PDF Export Error:', error);
+      const appError = ErrorHandler.createError(
+        error as Error,
+        ErrorType.PDF_GENERATION,
+        { 
+          context: 'PDF generation process',
+          language,
+          elementFound: !!element 
+        }
+      );
       
-      // より詳細なエラー情報を提供
-      let errorMessage = '';
-      if (error instanceof Error) {
-        errorMessage = error.message;
+      ErrorHandler.logError(appError);
+      logger.error('PDF export failed', error as Error, {
+        context: 'PDF generation process',
+        language,
+        elementFound: !!element
+      });
+      
+      if (onShowError) {
+        onShowError(appError);
       } else {
-        errorMessage = String(error);
+        const errorMessage = ErrorHandler.getErrorMessage(appError, language);
+        logger.warn('Fallback alert shown for PDF error', undefined, { language, errorMessage });
+        alert(errorMessage);
       }
-      
-      const detailedError = language === 'ja' 
-        ? `PDFの生成に失敗しました。\n詳細: ${errorMessage}\n\nブラウザのコンソールで詳細なエラーを確認してください。`
-        : `PDF generation failed.\nDetails: ${errorMessage}\n\nPlease check the browser console for detailed error information.`;
-      
-      alert(detailedError);
       
       // クリーンアップ
       const existingClone = document.getElementById('pdf-clone');
@@ -326,7 +378,7 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         document.body.removeChild(existingClone);
       }
     }
-  };
+  }, 'PDF Export');
 
   return (
     <>

@@ -7,6 +7,8 @@ import { DiagnosisResult } from './components/DiagnosisResult';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { DisclaimerModal } from './components/DisclaimerModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorToast, LoadingToast, SuccessToast } from './components/ErrorToast';
 import { Answer, DiagnosisPattern, EssentialOilRecommendation } from './types';
 import { 
   QUESTION_SCORING_RULES, 
@@ -23,6 +25,8 @@ import {
   getIndividualOilSuggestions,
   getAIPrompt
 } from './i18n';
+import { ErrorHandler, ErrorType, AppError, RetryableRequest } from './utils/errorHandler';
+import { logger } from './utils/logger';
 
 export interface CombinedDiagnosis {
   primary: DiagnosisPattern;
@@ -38,6 +42,11 @@ const App: React.FC = () => {
   const [diagnosis, setDiagnosis] = useState<CombinedDiagnosis | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // エラーハンドリング関連の状態
+  const [currentError, setCurrentError] = useState<AppError | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     const userLang = navigator.language.split('-')[0];
@@ -247,12 +256,22 @@ const App: React.FC = () => {
     const QUESTIONS_DATA = getQuestionsData(language);
 
     // 2. Perform rule-based diagnosis
+    logger.trackUserAction('diagnosis_submitted', {
+        language,
+        hasPhysicalText: !!(submittedAnswers.physicalDiscomfortsText?.length),
+        hasMentalText: !!(submittedAnswers.mentalEmotionalStateText?.length),
+        answerCount: Object.keys(submittedAnswers).length
+    });
     const diagnosisKeys = calculateDiagnosis(submittedAnswers);
     
     const primaryData = DIAGNOSIS_DATA[diagnosisKeys.primary];
 
     if (!primaryData) {
-        console.error(`Primary diagnosis data for ${diagnosisKeys.primary} not found`);
+        logger.error(`Primary diagnosis data for ${diagnosisKeys.primary} not found`, undefined, {
+            diagnosisKey: diagnosisKeys.primary,
+            availableKeys: Object.keys(DIAGNOSIS_DATA),
+            language
+        });
         const fallbackKey = (Object.keys(DIAGNOSIS_DATA) as DiagnosisKey[])[0] || 'KankiUkketsu';
         const fallbackDiagnosis: CombinedDiagnosis = {
             primary: {
@@ -302,49 +321,103 @@ const App: React.FC = () => {
     setCurrentPage('result');
     window.scrollTo(0, 0); 
 
-    // 4. Start AI analysis (asynchronously) - using secure API route
+    // 4. Start AI analysis (asynchronously) - using secure API route with retry
+    const retryableRequest = new RetryableRequest(3, 2000);
+    
     try {
         const prompt = getAIPrompt(language, finalDiagnosis, submittedAnswers, QUESTIONS_DATA);
 
-        const response = await fetch('/api/ai-analysis', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ prompt })
+        const result = await retryableRequest.execute(async () => {
+            const response = await fetch('/api/ai-analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt })
+            });
+
+            if (!response.ok) {
+                const apiError = await ErrorHandler.handleAPIError(response);
+                throw new Error(apiError.message);
+            }
+
+            const data = await response.json();
+            
+            if (data.success && data.text) {
+                return data.text;
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
+            }
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success && data.text) {
-            setAiAnalysis(data.text);
-        } else {
-            throw new Error(data.error || 'Unknown error occurred');
-        }
+        setAiAnalysis(result);
 
     } catch (error) {
-        console.error("AI analysis failed:", error);
+        const appError = ErrorHandler.createError(
+            error as Error, 
+            ErrorType.API, 
+            { context: 'AI analysis', language }
+        );
+        
+        ErrorHandler.logError(appError);
+        logger.error('AI analysis failed', error as Error, {
+            context: 'AI analysis',
+            language,
+            hasRetryable: appError.retryable,
+            diagnosisType: diagnosisKeys.primary
+        });
+        
         const errorMsg = language === 'ja' 
           ? "AIによる分析中にエラーが発生しました。申し訳ありませんが、診断の他の部分をご参照ください。ページを再読み込みするか、時間をおいて再度お試しください。"
           : "An error occurred during the AI analysis. We apologize for the inconvenience. Please refer to the other parts of your diagnosis. You can try reloading the page or submitting again later.";
+        
         setAiAnalysis(errorMsg);
+        setCurrentError(appError);
     } finally {
         setIsAnalyzing(false);
     }
   }, [language]);
 
   const handleStartOver = useCallback(() => {
+    logger.trackUserAction('diagnosis_restart', { language });
     setAnswers({});
     setDiagnosis(null);
     setCurrentPage('questionnaire');
     setPreviousPage('questionnaire');
     setAiAnalysis('');
     setIsAnalyzing(false);
+    setCurrentError(null); // エラー状態をリセット
     window.scrollTo(0, 0); 
+  }, [language]);
+
+  // エラーハンドリング関連の関数
+  const handleErrorDismiss = useCallback(() => {
+    logger.trackUserAction('error_dismissed', { 
+        language,
+        errorType: currentError?.type,
+        wasRetryable: currentError?.retryable
+    });
+    setCurrentError(null);
+  }, [language, currentError]);
+
+  const handleRetryAIAnalysis = useCallback(() => {
+    if (diagnosis) {
+      setCurrentError(null);
+      setIsAnalyzing(true);
+      // AI分析を再実行するロジックをここに追加
+      handleAnswersSubmit(answers);
+    }
+  }, [diagnosis, answers, handleAnswersSubmit]);
+
+  const showSuccess = useCallback((message: string) => {
+    logger.info('Success message shown', { message, language });
+    setSuccessMessage(message);
+    setShowSuccessToast(true);
+  }, [language]);
+
+  const handleSuccessToastDismiss = useCallback(() => {
+    setShowSuccessToast(false);
+    setSuccessMessage('');
   }, []);
 
   const handleShowPrivacyPolicy = useCallback(() => {
@@ -374,38 +447,62 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between antialiased" style={{ fontFamily: "'Shippori Mincho', serif" }}>
-      <Header language={language} setLanguage={setLanguage} />
-      <main className="container mx-auto px-4 py-8 flex-grow w-full max-w-3xl">
-        {currentPage === 'questionnaire' && (
-          <Questionnaire
-            onSubmit={handleAnswersSubmit}
-            language={language}
-          />
-        )}
-        {currentPage === 'result' && diagnosis && (
-          <DiagnosisResult
-            diagnosis={diagnosis}
-            onStartOver={handleStartOver}
-            aiAnalysis={aiAnalysis}
-            isAnalyzing={isAnalyzing}
-            language={language}
-          />
-        )}
-        {currentPage === 'privacy' && (
-           <PrivacyPolicy onBack={handleBackFromPrivacy} language={language} />
-        )}
-        {currentPage === 'terms' && (
-           <TermsOfService onBack={handleBackFromPrivacy} language={language} />
-        )}
-      </main>
-      <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTerms={handleShowTerms} language={language} />
-      <DisclaimerModal 
-        isOpen={showDisclaimer} 
-        onAccept={handleAcceptDisclaimer} 
-        language={language} 
-      />
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen flex flex-col items-center justify-between antialiased" style={{ fontFamily: "'Shippori Mincho', serif" }}>
+        <Header language={language} setLanguage={setLanguage} />
+        <main className="container mx-auto px-4 py-8 flex-grow w-full max-w-3xl">
+          {currentPage === 'questionnaire' && (
+            <Questionnaire
+              onSubmit={handleAnswersSubmit}
+              language={language}
+            />
+          )}
+          {currentPage === 'result' && diagnosis && (
+            <DiagnosisResult
+              diagnosis={diagnosis}
+              onStartOver={handleStartOver}
+              aiAnalysis={aiAnalysis}
+              isAnalyzing={isAnalyzing}
+              language={language}
+              onShowSuccess={showSuccess}
+              onShowError={setCurrentError}
+            />
+          )}
+          {currentPage === 'privacy' && (
+             <PrivacyPolicy onBack={handleBackFromPrivacy} language={language} />
+          )}
+          {currentPage === 'terms' && (
+             <TermsOfService onBack={handleBackFromPrivacy} language={language} />
+          )}
+        </main>
+        <Footer onShowPrivacyPolicy={handleShowPrivacyPolicy} onShowTerms={handleShowTerms} language={language} />
+        <DisclaimerModal 
+          isOpen={showDisclaimer} 
+          onAccept={handleAcceptDisclaimer} 
+          language={language} 
+        />
+        
+        {/* エラーハンドリング UI */}
+        <ErrorToast
+          error={currentError}
+          language={language}
+          onDismiss={handleErrorDismiss}
+          onRetry={currentError?.retryable ? handleRetryAIAnalysis : undefined}
+        />
+        
+        <LoadingToast
+          isLoading={isAnalyzing}
+          message={language === 'ja' ? 'AIが分析中です...' : 'AI is analyzing...'}
+          language={language}
+        />
+        
+        <SuccessToast
+          isVisible={showSuccessToast}
+          message={successMessage}
+          onDismiss={handleSuccessToastDismiss}
+        />
+      </div>
+    </ErrorBoundary>
   );
 };
 
