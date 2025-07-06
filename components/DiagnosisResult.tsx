@@ -143,87 +143,165 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
     const element = document.getElementById('diagnosis-result-content');
     if (!element) return;
 
+    // ローディング状態を表示
+    const loadingMessage = language === 'ja' ? 'PDFを生成中...' : 'Generating PDF...';
+    alert(loadingMessage);
+
     try {
-      const canvas = await html2canvas(element, {
+      // PDF用のスタイルを適用したクローンを作成
+      const clonedElement = element.cloneNode(true) as HTMLElement;
+      clonedElement.style.width = '800px';
+      clonedElement.style.maxWidth = '800px';
+      clonedElement.style.margin = '0';
+      clonedElement.style.padding = '40px';
+      clonedElement.style.backgroundColor = '#ffffff';
+      clonedElement.style.fontFamily = "'Noto Sans JP', sans-serif";
+      clonedElement.style.fontSize = '14px';
+      clonedElement.style.lineHeight = '1.6';
+      clonedElement.style.color = '#333333';
+      clonedElement.style.boxShadow = 'none';
+      clonedElement.style.borderRadius = '0';
+      clonedElement.style.border = 'none';
+
+      // 詳細要素を開く
+      const details = clonedElement.querySelectorAll('details');
+      details.forEach(detail => {
+        detail.setAttribute('open', 'true');
+      });
+
+      // ボタンを非表示
+      const buttons = clonedElement.querySelectorAll('button');
+      buttons.forEach(button => {
+        button.style.display = 'none';
+      });
+
+      // セクションの改ページ設定
+      const sections = clonedElement.querySelectorAll('section');
+      sections.forEach(section => {
+        section.style.pageBreakInside = 'avoid';
+        section.style.breakInside = 'avoid';
+        section.style.marginBottom = '20px';
+      });
+
+      // カード要素の改ページ設定
+      const cards = clonedElement.querySelectorAll('[class*="bg-emerald-50"], [class*="bg-indigo-50"], [class*="bg-purple-50"], [class*="bg-teal-50"], [class*="bg-lime-50"]');
+      cards.forEach(card => {
+        (card as HTMLElement).style.pageBreakInside = 'avoid';
+        (card as HTMLElement).style.breakInside = 'avoid';
+        (card as HTMLElement).style.marginBottom = '15px';
+        (card as HTMLElement).style.borderRadius = '8px';
+        (card as HTMLElement).style.padding = '15px';
+      });
+
+      // リスト要素の改ページ設定
+      const lists = clonedElement.querySelectorAll('ul, ol');
+      lists.forEach(list => {
+        (list as HTMLElement).style.pageBreakInside = 'avoid';
+        (list as HTMLElement).style.breakInside = 'avoid';
+      });
+
+      // 段落の改ページ設定
+      const paragraphs = clonedElement.querySelectorAll('p');
+      paragraphs.forEach(p => {
+        (p as HTMLElement).style.pageBreakInside = 'avoid';
+        (p as HTMLElement).style.breakInside = 'avoid';
+        (p as HTMLElement).style.marginBottom = '8px';
+      });
+
+      // 見出しの改ページ設定
+      const headings = clonedElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      headings.forEach(heading => {
+        (heading as HTMLElement).style.pageBreakAfter = 'avoid';
+        (heading as HTMLElement).style.breakAfter = 'avoid';
+        (heading as HTMLElement).style.marginTop = '20px';
+        (heading as HTMLElement).style.marginBottom = '10px';
+      });
+
+      // 一時的にDOMに追加
+      document.body.appendChild(clonedElement);
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.top = '0';
+
+      const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        windowWidth: 1200,
-        windowHeight: element.scrollHeight,
-        width: 1200,
-        height: element.scrollHeight,
-        onclone: (clonedDoc) => {
-          const clonedElement = clonedDoc.getElementById('diagnosis-result-content');
-          if (clonedElement) {
-            clonedElement.style.width = '1200px';
-            clonedElement.style.padding = '40px';
-            clonedElement.style.backgroundColor = '#ffffff';
-            clonedElement.style.fontFamily = "'Noto Sans JP', sans-serif";
-            clonedElement.style.fontSize = '16px';
-            clonedElement.style.lineHeight = '1.8';
-            clonedElement.style.color = '#333333';
-            clonedElement.style.pageBreakInside = 'avoid';
-
-            const details = clonedElement.querySelectorAll('details');
-            details.forEach(detail => {
-              detail.setAttribute('open', 'true');
-            });
-
-            const buttons = clonedElement.querySelectorAll('button');
-            buttons.forEach(button => {
-              button.style.display = 'none';
-            });
-
-            const sections = clonedElement.querySelectorAll('section');
-            sections.forEach(section => {
-              section.style.pageBreakInside = 'avoid';
-              section.style.breakInside = 'avoid';
-            });
-
-            const oilCards = clonedElement.querySelectorAll('[class*="oil-card"], [class*="bg-emerald-50"], [class*="bg-indigo-50"]');
-            oilCards.forEach(card => {
-              card.style.pageBreakInside = 'avoid';
-              card.style.breakInside = 'avoid';
-            });
-          }
-        }
+        width: 800,
+        height: clonedElement.scrollHeight,
+        logging: false,
+        removeContainer: true
       });
 
+      // クローン要素を削除
+      document.body.removeChild(clonedElement);
+
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20;
+      const margin = 15;
+      const imgWidth = pdfWidth - (margin * 2);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
       let heightLeft = imgHeight;
-      let position = 10;
+      let position = margin;
+      let pageCount = 1;
 
-      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight - 20;
+      // ヘッダーを追加
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 10, { align: 'center' });
 
+      // 最初のページを追加
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position + 10, imgWidth, imgHeight);
+      
+      // ページ番号を追加
+      pdf.setFontSize(10);
+      pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+      
+      heightLeft -= (pdfHeight - (margin * 2) - 20);
+
+      // 残りのページを追加
       while (heightLeft > 0) {
         pdf.addPage();
-        position = heightLeft - imgHeight + 10;
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight - 20;
+        pageCount++;
+        position = heightLeft - imgHeight + margin;
+        
+        // ヘッダーを追加
+        pdf.setFontSize(12);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 10, { align: 'center' });
+        
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position + 10, imgWidth, imgHeight);
+        
+        // ページ番号を追加
+        pdf.setFontSize(10);
+        pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+        
+        heightLeft -= (pdfHeight - (margin * 2) - 20);
       }
 
       const filename = `${strings.pdfFilename || 'diagnosis-result'}-${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(filename);
+      
+      // 成功メッセージを表示
+      const successMessage = language === 'ja' ? 'PDFが正常に生成されました！' : 'PDF generated successfully!';
+      alert(successMessage);
       
       if (onExportPDF) {
         onExportPDF();
       }
     } catch (error) {
       console.error('PDF export failed:', error);
-      alert(strings.pdfExportError || 'PDF export failed');
+      const errorMessage = language === 'ja' ? 'PDFの生成に失敗しました。もう一度お試しください。' : 'PDF generation failed. Please try again.';
+      alert(errorMessage);
     }
   };
 
   return (
     <>
-      <div id="diagnosis-result-content" className="p-4 md:p-8 bg-white shadow-2xl rounded-xl border border-emerald-300 max-w-2xl mx-auto">
+      <div id="diagnosis-result-content" className="p-4 md:p-8 bg-white shadow-2xl rounded-xl border border-emerald-300 max-w-2xl mx-auto" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <div style={{ fontFamily: "'Shippori Mincho', serif" }}>
             {/* Primary Diagnosis Section */}
             <div className="text-center mb-8">
