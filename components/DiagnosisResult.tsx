@@ -142,106 +142,159 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
   const handleExportPDF = async () => {
     const element = document.getElementById('diagnosis-result-content');
     if (!element) {
+      console.error('PDF Export: Element not found');
       alert(language === 'ja' ? '診断結果が見つかりません。' : 'Diagnosis result not found.');
       return;
     }
 
-    // ローディング状態を表示
-    const loadingMessage = language === 'ja' ? 'PDFを生成中...' : 'Generating PDF...';
-    alert(loadingMessage);
-
     try {
+      console.log('PDF Export: Starting export process');
+      
       // 元の要素をコピー
       const clonedElement = element.cloneNode(true) as HTMLElement;
+      clonedElement.id = 'pdf-clone';
       
-      // 基本的なスタイルを設定
-      clonedElement.style.width = '800px';
-      clonedElement.style.maxWidth = '800px';
-      clonedElement.style.margin = '0';
-      clonedElement.style.padding = '40px';
-      clonedElement.style.backgroundColor = '#ffffff';
-      clonedElement.style.fontFamily = "'Noto Sans JP', sans-serif";
-      clonedElement.style.fontSize = '14px';
-      clonedElement.style.lineHeight = '1.6';
-      clonedElement.style.color = '#333333';
-      clonedElement.style.boxShadow = 'none';
-      clonedElement.style.borderRadius = '0';
-      clonedElement.style.border = 'none';
-      clonedElement.style.position = 'absolute';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.top = '0';
-      clonedElement.style.visibility = 'hidden';
+      // 基本的なスタイルを設定（PDFに適した設定）
+      clonedElement.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -9999px;
+        width: 794px;
+        max-width: 794px;
+        margin: 0;
+        padding: 30px;
+        background-color: #ffffff;
+        font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #333333;
+        box-shadow: none;
+        border-radius: 0;
+        border: none;
+        visibility: visible;
+        opacity: 1;
+      `;
 
       // 詳細要素を開く
       const details = clonedElement.querySelectorAll('details');
       details.forEach(detail => {
         detail.setAttribute('open', 'true');
+        detail.style.display = 'block';
       });
 
-      // ボタンを非表示
-      const buttons = clonedElement.querySelectorAll('button');
-      buttons.forEach(button => {
-        (button as HTMLElement).style.display = 'none';
+      // ボタンとインタラクティブ要素を非表示
+      const interactiveElements = clonedElement.querySelectorAll('button, .hover\\:scale-105, .transform, .transition-all');
+      interactiveElements.forEach(el => {
+        (el as HTMLElement).style.display = 'none';
+      });
+
+      // 見出しとセクションの調整
+      const headings = clonedElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      headings.forEach(heading => {
+        (heading as HTMLElement).style.pageBreakAfter = 'avoid';
+        (heading as HTMLElement).style.marginTop = '20px';
+        (heading as HTMLElement).style.marginBottom = '10px';
+      });
+
+      // カード要素の調整
+      const cards = clonedElement.querySelectorAll('[class*="bg-"], .rounded-lg, .shadow-');
+      cards.forEach(card => {
+        (card as HTMLElement).style.pageBreakInside = 'avoid';
+        (card as HTMLElement).style.breakInside = 'avoid';
+        (card as HTMLElement).style.marginBottom = '15px';
+        (card as HTMLElement).style.borderRadius = '4px';
+        (card as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
       });
 
       // DOMに追加
       document.body.appendChild(clonedElement);
+      console.log('PDF Export: Element added to DOM');
 
-      // 少し待ってからキャンバス生成
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // レンダリング待機
+      await new Promise(resolve => setTimeout(resolve, 500));
 
+      console.log('PDF Export: Starting canvas generation');
       const canvas = await html2canvas(clonedElement, {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
-        width: 800,
+        width: 794,
         height: clonedElement.scrollHeight,
-        logging: false,
-        removeContainer: true
+        logging: true,
+        removeContainer: false,
+        foreignObjectRendering: false,
+        imageTimeout: 0,
+        onclone: (clonedDoc) => {
+          const clonedEl = clonedDoc.getElementById('pdf-clone');
+          if (clonedEl) {
+            // フォント読み込み確保
+            clonedEl.style.fontFamily = 'Arial, sans-serif';
+          }
+        }
       });
 
+      console.log('PDF Export: Canvas generated successfully', canvas.width, 'x', canvas.height);
+
       // クローン要素を削除
-      document.body.removeChild(clonedElement);
-
-      // PDF生成
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      const imgWidth = pdfWidth - (margin * 2);
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = margin;
-      let pageCount = 1;
-
-      // 最初のページを追加
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
-      
-      // ページ番号を追加
-      pdf.setFontSize(10);
-      pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-      
-      heightLeft -= (pdfHeight - (margin * 2));
-
-      // 残りのページを追加
-      while (heightLeft > 0) {
-        pdf.addPage();
-        pageCount++;
-        position = heightLeft - imgHeight + margin;
-        
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
-        
-        // ページ番号を追加
-        pdf.setFontSize(10);
-        pdf.text(`ページ ${pageCount}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-        
-        heightLeft -= (pdfHeight - (margin * 2));
+      if (clonedElement.parentNode) {
+        document.body.removeChild(clonedElement);
       }
 
-      const filename = `${strings.pdfFilename || 'diagnosis-result'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      // PDF生成
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pdfWidth - (margin * 2);
+      const contentHeight = pdfHeight - (margin * 2);
+      
+      const imgWidth = contentWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let currentHeight = 0;
+      let pageNumber = 1;
+
+      console.log('PDF Export: Starting PDF generation');
+
+      // 最初のページ
+      pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin, imgWidth, imgHeight);
+      
+      // ヘッダーとフッター
+      pdf.setFontSize(8);
+      pdf.setTextColor(128, 128, 128);
+      pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 15, { align: 'center' });
+      pdf.text(`${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+      
+      currentHeight = imgHeight;
+
+      // 追加ページが必要な場合
+      while (currentHeight > contentHeight) {
+        pdf.addPage();
+        pageNumber++;
+        
+        const offsetY = -(contentHeight * (pageNumber - 1));
+        pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin + offsetY, imgWidth, imgHeight);
+        
+        // ヘッダーとフッター
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+        pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 15, { align: 'center' });
+        pdf.text(`${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+        
+        currentHeight -= contentHeight;
+      }
+
+      const filename = `aroma-counseling-result-${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(filename);
+      
+      console.log('PDF Export: PDF saved successfully');
       
       // 成功メッセージを表示
       const successMessage = language === 'ja' ? 'PDFが正常に生成されました！' : 'PDF generated successfully!';
@@ -251,9 +304,27 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         onExportPDF();
       }
     } catch (error) {
-      console.error('PDF export failed:', error);
-      const errorMessage = language === 'ja' ? 'PDFの生成に失敗しました。もう一度お試しください。' : 'PDF generation failed. Please try again.';
-      alert(errorMessage);
+      console.error('PDF Export Error:', error);
+      
+      // より詳細なエラー情報を提供
+      let errorMessage = '';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = String(error);
+      }
+      
+      const detailedError = language === 'ja' 
+        ? `PDFの生成に失敗しました。\n詳細: ${errorMessage}\n\nブラウザのコンソールで詳細なエラーを確認してください。`
+        : `PDF generation failed.\nDetails: ${errorMessage}\n\nPlease check the browser console for detailed error information.`;
+      
+      alert(detailedError);
+      
+      // クリーンアップ
+      const existingClone = document.getElementById('pdf-clone');
+      if (existingClone && existingClone.parentNode) {
+        document.body.removeChild(existingClone);
+      }
     }
   };
 
@@ -403,11 +474,23 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
       </div>
       
       <div className="text-center mt-10 space-y-6">
-        <Button onClick={handleExportPDF} variant="primary" size="large" disabled={isAnalyzing}>
-          {strings.exportPDFButton || 'PDFをエクスポート'}
+        <Button 
+          onClick={handleExportPDF} 
+          variant="primary" 
+          size="large" 
+          disabled={isAnalyzing}
+          aria-label={language === 'ja' ? 'PDFファイルをダウンロードする' : 'Download PDF file'}
+        >
+          📄 {strings.exportPDFButton || 'PDFをダウンロード'}
         </Button>
         <div className="mt-8">
-          <Button onClick={onStartOver} variant="secondary" size="large" disabled={isAnalyzing}>
+          <Button 
+            onClick={onStartOver} 
+            variant="secondary" 
+            size="large" 
+            disabled={isAnalyzing}
+            aria-label={language === 'ja' ? '診断を最初からやり直す' : 'Start diagnosis over'}
+          >
             {strings.startOverButton}
           </Button>
         </div>
