@@ -3,6 +3,8 @@ import { DiagnosisPattern, EssentialOilRecommendation, GeneralOilApplication, Ac
 import { Button } from './Button';
 import type { CombinedDiagnosis } from '../App';
 import { uiStrings } from '../i18n';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface DetailItemProps {
   label: string;
@@ -16,6 +18,7 @@ export interface DiagnosisResultProps {
   aiAnalysis: string;
   isAnalyzing: boolean;
   language: 'ja' | 'en';
+  onExportPDF?: () => void;
 }
 
 const AiAnalysisCard: React.FC<{ analysis: string; isLoading: boolean; language: 'ja' | 'en' }> = ({ analysis, isLoading, language }) => {
@@ -132,13 +135,95 @@ const AcupointCard: React.FC<{ acupoint: AcupointApplication, language: 'ja' | '
     );
 };
 
-export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onStartOver, aiAnalysis, isAnalyzing, language }) => {
+export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onStartOver, aiAnalysis, isAnalyzing, language, onExportPDF }) => {
   const { primary, secondaries } = diagnosis;
   const strings = uiStrings[language].result;
 
+  const handleExportPDF = async () => {
+    const element = document.getElementById('diagnosis-result-content');
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        windowWidth: 1200,
+        windowHeight: element.scrollHeight,
+        width: 1200,
+        height: element.scrollHeight,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('diagnosis-result-content');
+          if (clonedElement) {
+            clonedElement.style.width = '1200px';
+            clonedElement.style.padding = '40px';
+            clonedElement.style.backgroundColor = '#ffffff';
+            clonedElement.style.fontFamily = "'Noto Sans JP', sans-serif";
+            clonedElement.style.fontSize = '16px';
+            clonedElement.style.lineHeight = '1.8';
+            clonedElement.style.color = '#333333';
+            clonedElement.style.pageBreakInside = 'avoid';
+
+            const details = clonedElement.querySelectorAll('details');
+            details.forEach(detail => {
+              detail.setAttribute('open', 'true');
+            });
+
+            const buttons = clonedElement.querySelectorAll('button');
+            buttons.forEach(button => {
+              button.style.display = 'none';
+            });
+
+            const sections = clonedElement.querySelectorAll('section');
+            sections.forEach(section => {
+              section.style.pageBreakInside = 'avoid';
+              section.style.breakInside = 'avoid';
+            });
+
+            const oilCards = clonedElement.querySelectorAll('[class*="oil-card"], [class*="bg-emerald-50"], [class*="bg-indigo-50"]');
+            oilCards.forEach(card => {
+              card.style.pageBreakInside = 'avoid';
+              card.style.breakInside = 'avoid';
+            });
+          }
+        }
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 10;
+
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight - 20;
+
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = heightLeft - imgHeight + 10;
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight - 20;
+      }
+
+      const filename = `${strings.pdfFilename || 'diagnosis-result'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(filename);
+      
+      if (onExportPDF) {
+        onExportPDF();
+      }
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      alert(strings.pdfExportError || 'PDF export failed');
+    }
+  };
+
   return (
     <>
-      <div className="p-4 md:p-8 bg-white shadow-2xl rounded-xl border border-emerald-300 max-w-2xl mx-auto">
+      <div id="diagnosis-result-content" className="p-4 md:p-8 bg-white shadow-2xl rounded-xl border border-emerald-300 max-w-2xl mx-auto">
         <div style={{ fontFamily: "'Shippori Mincho', serif" }}>
             {/* Primary Diagnosis Section */}
             <div className="text-center mb-8">
@@ -281,7 +366,10 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({ diagnosis, onS
         </div>
       </div>
       
-      <div className="text-center mt-10">
+      <div className="text-center mt-10 space-y-4">
+        <Button onClick={handleExportPDF} variant="primary" size="large" disabled={isAnalyzing}>
+          {strings.exportPDFButton || 'PDFをエクスポート'}
+        </Button>
         <Button onClick={onStartOver} variant="secondary" size="large" disabled={isAnalyzing}>
           {strings.startOverButton}
         </Button>
