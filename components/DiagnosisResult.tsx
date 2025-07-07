@@ -3,6 +3,8 @@ import { DiagnosisPattern, EssentialOilRecommendation, GeneralOilApplication, Ac
 import { Button } from './Button';
 import type { CombinedDiagnosis } from '../App';
 import { uiStrings } from '../i18n';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { ErrorHandler, ErrorType } from '../utils/errorHandler';
 import { logger, measureAsyncPerformance } from '../utils/logger';
 
@@ -150,6 +152,141 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({
   const { primary, secondaries } = diagnosis;
   const strings = uiStrings[language].result;
 
+  const fallbackToPDFGeneration = async (element: HTMLElement) => {
+    logger.info('PDF Export: Starting fallback html2canvas PDF generation', { language });
+    
+    // 元の要素をコピー
+    const clonedElement = element.cloneNode(true) as HTMLElement;
+    clonedElement.id = 'pdf-clone';
+    
+    // 基本的なスタイルを設定（PDFに適した設定）
+    clonedElement.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: -9999px;
+      width: 794px;
+      max-width: 794px;
+      margin: 0;
+      padding: 30px;
+      background-color: #ffffff;
+      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #333333;
+      box-shadow: none;
+      border-radius: 0;
+      border: none;
+      visibility: visible;
+      opacity: 1;
+    `;
+
+    // 詳細要素を開く
+    const details = clonedElement.querySelectorAll('details');
+    details.forEach(detail => {
+      detail.setAttribute('open', 'true');
+      detail.style.display = 'block';
+    });
+
+    // ボタンとインタラクティブ要素を非表示
+    const interactiveElements = clonedElement.querySelectorAll('button, .hover\\:scale-105, .transform, .transition-all');
+    interactiveElements.forEach(el => {
+      (el as HTMLElement).style.display = 'none';
+    });
+
+    // DOMに追加
+    document.body.appendChild(clonedElement);
+    logger.debug('PDF Export: Element added to DOM');
+
+    // レンダリング待機
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    logger.debug('PDF Export: Starting canvas generation');
+    const canvas = await html2canvas(clonedElement, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      width: 794,
+      height: clonedElement.scrollHeight,
+      logging: false,
+      removeContainer: false,
+      foreignObjectRendering: false,
+      imageTimeout: 0
+    });
+
+    logger.info('PDF Export: Canvas generated successfully', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      language
+    });
+
+    // クローン要素を削除
+    if (clonedElement.parentNode) {
+      document.body.removeChild(clonedElement);
+    }
+
+    // PDF生成
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pdfWidth - (margin * 2);
+    const contentHeight = pdfHeight - (margin * 2);
+    
+    const imgWidth = contentWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    let currentHeight = 0;
+    let pageNumber = 1;
+
+    logger.debug('PDF Export: Starting PDF generation');
+
+    // 最初のページ
+    pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin, imgWidth, imgHeight);
+    
+    // ヘッダーとフッター
+    pdf.setFontSize(8);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 15, { align: 'center' });
+    pdf.text(`${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+    
+    currentHeight = imgHeight;
+
+    // 追加ページが必要な場合
+    while (currentHeight > contentHeight) {
+      pdf.addPage();
+      pageNumber++;
+      
+      const offsetY = -(contentHeight * (pageNumber - 1));
+      pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin + offsetY, imgWidth, imgHeight);
+      
+      // ヘッダーとフッター
+      pdf.setFontSize(8);
+      pdf.setTextColor(128, 128, 128);
+      pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 15, { align: 'center' });
+      pdf.text(`${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+      
+      currentHeight -= contentHeight;
+    }
+
+    const filename = `aroma-counseling-result-${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(filename);
+    
+    logger.info('PDF Export: Fallback PDF saved successfully', {
+      filename,
+      language,
+      pageCount: pageNumber
+    });
+    
+    return filename;
+  };
+
   const handleExportPDF = measureAsyncPerformance(async () => {
     logger.trackUserAction('pdf_export_started', { language });
     
@@ -241,29 +378,52 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({
         onExportPDF();
       }
     } catch (error) {
-      const appError = ErrorHandler.createError(
-        error as Error,
-        ErrorType.PDF_GENERATION,
-        { 
-          context: 'Puppeteer PDF generation process',
-          language,
-          elementFound: !!element 
+      logger.warn('PDF Export: Puppeteer failed, falling back to html2canvas', error as Error, { language });
+      
+      try {
+        // フォールバック: html2canvas + jsPDF
+        const filename = await fallbackToPDFGeneration(element);
+        
+        // 成功メッセージを表示
+        const successMessage = language === 'ja' ? 'PDFが正常に生成されました！（フォールバック方式）' : 'PDF generated successfully! (fallback method)';
+        logger.trackUserAction('pdf_export_completed_fallback', { language, filename });
+        if (onShowSuccess) {
+          onShowSuccess(successMessage);
+        } else {
+          logger.warn('Fallback alert shown for PDF success', undefined, { language });
+          alert(successMessage);
         }
-      );
-      
-      ErrorHandler.logError(appError);
-      logger.error('PDF export failed', error as Error, {
-        context: 'Puppeteer PDF generation process',
-        language,
-        elementFound: !!element
-      });
-      
-      if (onShowError) {
-        onShowError(appError);
-      } else {
-        const errorMessage = ErrorHandler.getErrorMessage(appError, language);
-        logger.warn('Fallback alert shown for PDF error', undefined, { language, errorMessage });
-        alert(errorMessage);
+        
+        if (onExportPDF) {
+          onExportPDF();
+        }
+      } catch (fallbackError) {
+        const appError = ErrorHandler.createError(
+          fallbackError as Error,
+          ErrorType.PDF_GENERATION,
+          { 
+            context: 'Both Puppeteer and fallback PDF generation failed',
+            language,
+            elementFound: !!element,
+            originalError: (error as Error).message
+          }
+        );
+        
+        ErrorHandler.logError(appError);
+        logger.error('PDF export failed completely', fallbackError as Error, {
+          context: 'Both methods failed',
+          language,
+          elementFound: !!element,
+          originalError: (error as Error).message
+        });
+        
+        if (onShowError) {
+          onShowError(appError);
+        } else {
+          const errorMessage = ErrorHandler.getErrorMessage(appError, language);
+          logger.warn('Fallback alert shown for PDF error', undefined, { language, errorMessage });
+          alert(errorMessage);
+        }
       }
     }
   }, 'PDF Export');

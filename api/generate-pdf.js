@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,10 +14,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'HTML content is required' });
     }
 
-    // Launch Puppeteer with optimized settings for Vercel
+    // Launch Puppeteer with Vercel-optimized settings
+    const executablePath = await chromium.executablePath();
+    
     browser = await puppeteer.launch({
-      headless: true,
       args: [
+        ...chromium.args,
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
@@ -24,8 +27,15 @@ export default async function handler(req, res) {
         '--no-first-run',
         '--no-zygote',
         '--single-process',
-        '--disable-gpu'
-      ]
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
+      ],
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+      timeout: 60000
     });
 
     const page = await browser.newPage();
