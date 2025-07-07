@@ -3,8 +3,6 @@ import { DiagnosisPattern, EssentialOilRecommendation, GeneralOilApplication, Ac
 import { Button } from './Button';
 import type { CombinedDiagnosis } from '../App';
 import { uiStrings } from '../i18n';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { ErrorHandler, ErrorType } from '../utils/errorHandler';
 import { logger, measureAsyncPerformance } from '../utils/logger';
 
@@ -177,165 +175,61 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({
     }
 
     try {
-      logger.info('PDF Export: Starting export process', { language });
+      logger.info('PDF Export: Starting Puppeteer PDF generation', { language });
       
-      // 元の要素をコピー
+      // HTML content を取得
       const clonedElement = element.cloneNode(true) as HTMLElement;
-      clonedElement.id = 'pdf-clone';
       
-      // 基本的なスタイルを設定（PDFに適した設定）
-      clonedElement.style.cssText = `
-        position: absolute;
-        top: 0;
-        left: -9999px;
-        width: 794px;
-        max-width: 794px;
-        margin: 0;
-        padding: 30px;
-        background-color: #ffffff;
-        font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
-        font-size: 12px;
-        line-height: 1.5;
-        color: #333333;
-        box-shadow: none;
-        border-radius: 0;
-        border: none;
-        visibility: visible;
-        opacity: 1;
-      `;
-
+      // インタラクティブ要素を削除
+      const interactiveElements = clonedElement.querySelectorAll('button, .hover\\:scale-105, .transform, .transition-all');
+      interactiveElements.forEach(el => {
+        el.remove();
+      });
+      
       // 詳細要素を開く
       const details = clonedElement.querySelectorAll('details');
       details.forEach(detail => {
         detail.setAttribute('open', 'true');
-        detail.style.display = 'block';
       });
-
-      // ボタンとインタラクティブ要素を非表示
-      const interactiveElements = clonedElement.querySelectorAll('button, .hover\\:scale-105, .transform, .transition-all');
-      interactiveElements.forEach(el => {
-        (el as HTMLElement).style.display = 'none';
+      
+      const htmlContent = clonedElement.outerHTML;
+      const title = `アロマカウンセリング診断結果_${new Date().toISOString().split('T')[0]}`;
+      
+      // API endpoint を呼び出し
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          html: htmlContent,
+          title: title
+        })
       });
-
-      // 見出しとセクションの調整
-      const headings = clonedElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      headings.forEach(heading => {
-        (heading as HTMLElement).style.pageBreakAfter = 'avoid';
-        (heading as HTMLElement).style.marginTop = '20px';
-        (heading as HTMLElement).style.marginBottom = '10px';
-      });
-
-      // カード要素の調整
-      const cards = clonedElement.querySelectorAll('[class*="bg-"], .rounded-lg, .shadow-');
-      cards.forEach(card => {
-        (card as HTMLElement).style.pageBreakInside = 'avoid';
-        (card as HTMLElement).style.breakInside = 'avoid';
-        (card as HTMLElement).style.marginBottom = '15px';
-        (card as HTMLElement).style.borderRadius = '4px';
-        (card as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-      });
-
-      // DOMに追加
-      document.body.appendChild(clonedElement);
-      logger.debug('PDF Export: Element added to DOM');
-
-      // レンダリング待機
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      logger.debug('PDF Export: Starting canvas generation');
-      const canvas = await html2canvas(clonedElement, {
-        scale: 1.5,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: clonedElement.scrollHeight,
-        logging: true,
-        removeContainer: false,
-        foreignObjectRendering: false,
-        imageTimeout: 0,
-        onclone: (clonedDoc) => {
-          const clonedEl = clonedDoc.getElementById('pdf-clone');
-          if (clonedEl) {
-            // フォント読み込み確保
-            clonedEl.style.fontFamily = 'Arial, sans-serif';
-          }
-        }
-      });
-
-      logger.info('PDF Export: Canvas generated successfully', {
-        canvasWidth: canvas.width,
-        canvasHeight: canvas.height,
-        language
-      });
-
-      // クローン要素を削除
-      if (clonedElement.parentNode) {
-        document.body.removeChild(clonedElement);
+      
+      if (!response.ok) {
+        throw new Error(`PDF generation failed: ${response.status} ${response.statusText}`);
       }
-
-      // PDF生成
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pdfWidth - (margin * 2);
-      const contentHeight = pdfHeight - (margin * 2);
       
-      const imgWidth = contentWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // PDF をダウンロード
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      let currentHeight = 0;
-      let pageNumber = 1;
-
-      logger.debug('PDF Export: Starting PDF generation');
-
-      // 最初のページ
-      pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin, imgWidth, imgHeight);
-      
-      // ヘッダーとフッター
-      pdf.setFontSize(8);
-      pdf.setTextColor(128, 128, 128);
-      pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 15, { align: 'center' });
-      pdf.text(`${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-      
-      currentHeight = imgHeight;
-
-      // 追加ページが必要な場合
-      while (currentHeight > contentHeight) {
-        pdf.addPage();
-        pageNumber++;
-        
-        const offsetY = -(contentHeight * (pageNumber - 1));
-        pdf.addImage(canvas.toDataURL('image/png', 0.95), 'PNG', margin, margin + offsetY, imgWidth, imgHeight);
-        
-        // ヘッダーとフッター
-        pdf.setFontSize(8);
-        pdf.setTextColor(128, 128, 128);
-        pdf.text('アロマカウンセリング診断結果', pdfWidth / 2, 15, { align: 'center' });
-        pdf.text(`${pageNumber}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-        
-        currentHeight -= contentHeight;
-      }
-
-      const filename = `aroma-counseling-result-${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(filename);
-      
-      logger.info('PDF Export: PDF saved successfully', {
-        filename,
+      logger.info('PDF Export: Puppeteer PDF generated successfully', {
         language,
-        pageCount: pageNumber
+        title
       });
       
       // 成功メッセージを表示
       const successMessage = language === 'ja' ? 'PDFが正常に生成されました！' : 'PDF generated successfully!';
-      logger.trackUserAction('pdf_export_completed', { language, filename });
+      logger.trackUserAction('pdf_export_completed', { language, title });
       if (onShowSuccess) {
         onShowSuccess(successMessage);
       } else {
@@ -351,7 +245,7 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({
         error as Error,
         ErrorType.PDF_GENERATION,
         { 
-          context: 'PDF generation process',
+          context: 'Puppeteer PDF generation process',
           language,
           elementFound: !!element 
         }
@@ -359,7 +253,7 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({
       
       ErrorHandler.logError(appError);
       logger.error('PDF export failed', error as Error, {
-        context: 'PDF generation process',
+        context: 'Puppeteer PDF generation process',
         language,
         elementFound: !!element
       });
@@ -370,12 +264,6 @@ export const DiagnosisResult: React.FC<DiagnosisResultProps> = ({
         const errorMessage = ErrorHandler.getErrorMessage(appError, language);
         logger.warn('Fallback alert shown for PDF error', undefined, { language, errorMessage });
         alert(errorMessage);
-      }
-      
-      // クリーンアップ
-      const existingClone = document.getElementById('pdf-clone');
-      if (existingClone && existingClone.parentNode) {
-        document.body.removeChild(existingClone);
       }
     }
   }, 'PDF Export');
