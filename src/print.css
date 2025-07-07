@@ -1,0 +1,232 @@
+/* 印刷専用CSS */
+@media print {
+  /* 全体設定 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif !important;
+    font-size: 12pt !important;
+    line-height: 1.4 !important;
+    color: #000 !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* ページ設定 */
+  @page {
+    size: A4;
+    margin: 15mm;
+    @top-center {
+      content: "アロマカウンセリング診断結果";
+      font-size: 10pt;
+      color: #666;
+    }
+    @bottom-center {
+      content: counter(page);
+      font-size: 10pt;
+      color: #666;
+    }
+  }
+
+  /* 非表示要素 */
+  .no-print,
+  button,
+  .hover\\:scale-105,
+  .transform,
+  .transition-all,
+  nav,
+  footer,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* メインコンテンツ */
+  #diagnosis-result-content {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  /* 見出し */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'MS PMincho', serif !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    color: #000 !important;
+  }
+
+  h1 {
+    font-size: 18pt !important;
+    text-align: center !important;
+    border-bottom: 2pt solid #000 !important;
+    padding-bottom: 8pt !important;
+    margin-bottom: 20pt !important;
+  }
+
+  h2 {
+    font-size: 16pt !important;
+    margin-top: 20pt !important;
+    margin-bottom: 12pt !important;
+  }
+
+  h3 {
+    font-size: 14pt !important;
+    margin-top: 16pt !important;
+    margin-bottom: 8pt !important;
+  }
+
+  /* パラグラフ */
+  p {
+    margin-bottom: 8pt !important;
+    text-align: justify !important;
+    orphans: 2 !important;
+    widows: 2 !important;
+  }
+
+  /* セクション */
+  .diagnosis-section,
+  .oil-recommendation,
+  .application-method,
+  .acupoint-method,
+  .ai-analysis {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 12pt 0 !important;
+    padding: 8pt !important;
+    border: 1pt solid #ccc !important;
+    border-radius: 4pt !important;
+  }
+
+  /* 背景色を印刷用に調整 */
+  .bg-green-50,
+  .bg-emerald-50,
+  .bg-blue-50,
+  .bg-yellow-50,
+  .bg-teal-50,
+  .bg-indigo-50,
+  .bg-lime-50,
+  .bg-sky-50,
+  .bg-purple-50,
+  .bg-pink-50,
+  .bg-rose-50 {
+    background-color: #f8f9fa !important;
+    border: 1pt solid #e9ecef !important;
+  }
+
+  /* グラデーション背景を単色に */
+  .bg-gradient-to-tr,
+  .bg-gradient-to-br,
+  .bg-gradient-to-r {
+    background: #f0f0f0 !important;
+  }
+
+  /* リスト */
+  ul, ol {
+    margin-left: 16pt !important;
+    margin-bottom: 8pt !important;
+  }
+
+  li {
+    margin-bottom: 4pt !important;
+  }
+
+  /* 詳細要素 */
+  details {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  details[open] {
+    display: block !important;
+  }
+
+  summary {
+    display: none !important; /* 印刷時は常に開いた状態 */
+  }
+
+  /* テキストサイズ調整 */
+  .text-xs { font-size: 9pt !important; }
+  .text-sm { font-size: 10pt !important; }
+  .text-base { font-size: 12pt !important; }
+  .text-lg { font-size: 14pt !important; }
+  .text-xl { font-size: 16pt !important; }
+  .text-2xl { font-size: 18pt !important; }
+  .text-3xl { font-size: 20pt !important; }
+
+  /* カード要素 */
+  .rounded-lg,
+  .rounded-md,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl {
+    border-radius: 4pt !important;
+    box-shadow: none !important;
+    border: 1pt solid #ddd !important;
+  }
+
+  /* マージン・パディング調整 */
+  .p-4, .p-6, .p-8 { padding: 8pt !important; }
+  .m-4, .m-6, .m-8 { margin: 8pt !important; }
+  .mt-4, .mt-6, .mt-8, .mt-10 { margin-top: 12pt !important; }
+  .mb-4, .mb-6, .mb-8, .mb-10 { margin-bottom: 12pt !important; }
+
+  /* 中央寄せ調整 */
+  .text-center {
+    text-align: center !important;
+  }
+
+  /* ページブレーク制御 */
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .avoid-page-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 二次診断セクション */
+  .secondary-pattern-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 12pt !important;
+    padding: 8pt !important;
+    border: 1pt solid #ccc !important;
+    background: #f8f9fa !important;
+  }
+
+  /* AI分析セクション */
+  .ai-analysis {
+    background: #f0f8ff !important;
+    border: 1pt solid #b0d4f1 !important;
+  }
+
+  /* フッター非表示 */
+  .footer,
+  .navigation,
+  .sidebar {
+    display: none !important;
+  }
+
+  /* 強制改行制御 */
+  .whitespace-pre-line {
+    white-space: pre-line !important;
+  }
+}
